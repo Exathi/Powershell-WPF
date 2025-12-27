@@ -1,0 +1,276 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="clr-namespace:;assembly=PowerShell Class Assembly">
+
+    <local:RightMarginConverter x:Key="RightMarginConverter" />
+
+    <Color x:Key="ForegroundColor">#FF212121</Color>
+    <Color x:Key="ControlBorderColor">#ACACAC</Color>
+    <SolidColorBrush x:Key="ForegroundBrush" Color="{StaticResource ForegroundColor}"/>
+
+    <!-- SpecificTextblocks -->
+    <Style x:Key="TextBlockShowCase" TargetType="TextBlock">
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
+    </Style>
+
+    <Style x:Key="TextBlockLabel" TargetType="TextBlock">
+        <Setter Property="HorizontalAlignment" Value="Right" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
+    </Style>
+
+    <Style x:Key="TextBlockData" TargetType="TextBlock">
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
+        <Setter Property="Margin" Value="10,0,0,5"/>
+    </Style>
+
+    <!-- GenericButton -->
+    <SolidColorBrush x:Key="Button.MouseOver.Background" Color="#E1EFFA"/>
+    <SolidColorBrush x:Key="Button.MouseOver.Border" Color="#3B85C9"/>
+    <SolidColorBrush x:Key="ButtonForeground" Color="{StaticResource ForegroundColor}"/>
+    <SolidColorBrush x:Key="Button.Background" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="ButtonBorder" Color="{StaticResource ControlBorderColor}"/>
+    <SolidColorBrush x:Key="Button.IsDefault.Border" Color="#3B85C9"/>
+    <SolidColorBrush x:Key="PressedButtonBackground" Color="#EEEEEE"/>
+    <SolidColorBrush x:Key="DisabledButtonBackground" Color="#EEEEEE"/>
+    <SolidColorBrush x:Key="DisabledButtonForeground" Color="#AAAAAA"/>
+    <SolidColorBrush x:Key="DisabledButtonBorder" Color="#CCCCCC"/>
+
+    <Style x:Key="ButtonFocusVisual">
+        <Setter Property="Control.Template">
+            <Setter.Value>
+                <ControlTemplate>
+                    <Rectangle Margin="4" SnapsToDevicePixels="true"
+                        Stroke="{StaticResource ForegroundBrush}"
+                        StrokeThickness="1"
+                        StrokeDashArray="1 2"/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+        <Setter Property="FocusVisualStyle" Value="{StaticResource ButtonFocusVisual}"/>
+        <Setter Property="Background" Value="{StaticResource Button.Background}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource ButtonBorder}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Foreground" Value="{StaticResource ButtonForeground}"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="Padding" Value="1"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate x:Name="ButtonTemplate" TargetType="Button">
+                    <Border x:Name="ButtonBorder"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="3">
+                        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            Margin="{TemplateBinding Padding}"
+                            RecognizesAccessKey="True"
+                            SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"
+                            VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="true">
+                            <Setter Property="BorderBrush" Value="{StaticResource Button.MouseOver.Border}"/>
+                            <Setter Property="Background" Value="{StaticResource Button.MouseOver.Background}"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="true">
+                            <Setter Property="Background" Value="{StaticResource PressedButtonBackground}"/>
+                            <Setter Property="Foreground" Value="{StaticResource ButtonForeground}"/>
+                        </Trigger>
+                        <Trigger Property="IsDefault" Value="true">
+                            <Setter Property="BorderBrush" Value="{StaticResource Button.IsDefault.Border}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="false">
+                            <Setter Property="Foreground" Value="{StaticResource DisabledButtonForeground}"/>
+                            <Setter Property="Background" Value="{StaticResource DisabledButtonBackground}"/>
+                            <Setter Property="BorderBrush" Value="{StaticResource DisabledButtonBorder}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- DataGridCell -->
+    <Style x:Key="DefaultDataGridCellStyle" TargetType="DataGridCell">
+        <Setter Property="MinHeight" Value="25" />
+        <Setter Property="Margin" Value="2,0,0,0" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="DataGridCell">
+                    <Grid Background="{TemplateBinding Background}">
+                        <ContentPresenter VerticalAlignment="Center" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Menu -->
+    <!-- <Style x:Key="DefaultMenuStyle" TargetType="MenuItem">
+        <Setter Property="OverridesDefaultStyle" Value="True" />
+        <Setter Property="Background" Value="#00FFFFFF" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Height" Value="35" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Menu">
+                    <Border
+                        Name = "Bd"
+                        Padding="{TemplateBinding Padding}"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        SnapsToDevicePixels="true">
+                        <ItemsPresenter SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsHighlighted" Value="True">
+                            <Setter Property="Background" TargetName="Bd" Value="Yellow"/>
+                            <Setter Property="BorderBrush" TargetName="Bd" Value="#FF26A0DA"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style> -->
+
+    <!-- MenuTemplate -->
+    <ControlTemplate x:Key="Menu_SubMenu_Template"
+                     TargetType="{x:Type MenuItem}">
+
+        <Border x:Name="border"
+                Background="#00FFFFFF"
+                BorderBrush="#00FFFFFF"
+                BorderThickness="0"
+                Height="25">
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition MinWidth="22"
+                                      Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <!--// Menu Text //-->
+                <ContentPresenter ContentSource="Header"
+                                  Grid.Column="0"
+                                  HorizontalAlignment="Left"
+                                  RecognizesAccessKey="True"
+                                  Margin="3,0,3,0"
+                                  VerticalAlignment="Center" />
+                <!--// Popup //-->
+
+                <Popup x:Name="PART_Popup"
+                       AllowsTransparency="true"
+                       Focusable="false"
+                       HorizontalOffset="0"
+                       IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}"
+                       Placement="Bottom"
+                       PopupAnimation="{DynamicResource {x:Static SystemParameters.MenuPopupAnimationKey}}"
+                       VerticalOffset="0">
+
+                    <Border x:Name="SubMenuBorder"
+                            Background="#FFCCCCCC"
+                            BorderBrush="#FFCCCCCC"
+                            BorderThickness="1">
+
+                        <ScrollViewer x:Name="SubMenuScrollViewer"
+                                      Style="{DynamicResource {ComponentResourceKey ResourceId=MenuScrollViewer, TypeInTargetAssembly={x:Type FrameworkElement}}}">
+
+                            <Grid RenderOptions.ClearTypeHint="Enabled">
+
+                                <Canvas HorizontalAlignment="Left"
+                                        VerticalAlignment="Top" />
+
+                                <ItemsPresenter x:Name="ItemsPresenter"
+                                                KeyboardNavigation.DirectionalNavigation="Cycle"
+                                                Grid.IsSharedSizeScope="true"
+                                                KeyboardNavigation.TabNavigation="Cycle" />
+                            </Grid>
+                        </ScrollViewer>
+                    </Border>
+                </Popup>
+
+            </Grid>
+        </Border>
+
+
+        <ControlTemplate.Triggers>
+
+            <Trigger Property="IsSuspendingPopupAnimation"
+                     Value="true">
+                <Setter Property="PopupAnimation"
+                        TargetName="PART_Popup"
+                        Value="None" />
+            </Trigger>
+            <Trigger Property="IsHighlighted"
+                     Value="True">
+                <Setter Property="Background"
+                        TargetName="border"
+                        Value="LightGray" />
+                <Setter Property="BorderBrush"
+                        TargetName="border"
+                        Value="LightGray" />
+            </Trigger>
+
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+
+    <!-- TitleBarButtons -->
+    <StreamGeometry x:Key="BurgerMenu">M190.154-298.154v-28.923h579.692v28.923H190.154Zm0-167.692v-28.923h579.692v28.923H190.154Zm0-167.692v-28.924h579.692v28.924H190.154Z</StreamGeometry>
+    <StreamGeometry x:Key="ChromeClose">M 11.416016 10 L 20 18.583984 L 18.583984 20 L 10 11.416016 L 1.416016 20 L 0 18.583984 L 8.583984 10 L 0 1.416016 L 1.416016 0 L 10 8.583984 L 18.583984 0 L 20 1.416016 Z</StreamGeometry>
+    <StreamGeometry x:Key="ChromeMinimize">M 20 8 L 20 10 L 0 10 L 0 8 Z</StreamGeometry>
+    <StreamGeometry x:Key="ChromeMaximize">M 20 0 L 20 20 L 0 20 L 0 0 Z M 18 2 L 2 2 L 2 18 L 18 18 Z</StreamGeometry>
+    <StreamGeometry x:Key="ChromeRestore">M 20 16 L 16 16 L 16 20 L 0 20 L 0 4 L 4 4 L 4 0 L 20 0 Z M 14 6 L 2 6 L 2 18 L 14 18 Z M 18 2 L 6 2 L 6 4 L 16 4 L 16 14 L 18 14 Z</StreamGeometry>
+
+    <Style x:Key="TitleBarButton" TargetType="Button">
+        <Setter Property="WindowChrome.IsHitTestVisibleInChrome" Value="True" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Width" Value="46" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="BorderThickness" Value="0" />
+        <!-- <Style.Triggers>
+            <DataTrigger Binding="{Binding WindowState, RelativeSource={RelativeSource AncestorType=Window}}"
+                        Value="Maximized">
+                <Setter Property="Margin" Value="0,4,4,0"/>
+            </DataTrigger>
+            <DataTrigger Binding="{Binding WindowState, RelativeSource={RelativeSource AncestorType=Window}}"
+                        Value="Normal">
+                <Setter Property="Margin" Value="0"/>
+            </DataTrigger>
+        </Style.Triggers> -->
+    </Style>
+
+    <Style x:Key="TitleBarButtonRestore" TargetType="Button" BasedOn="{StaticResource TitleBarButton}">
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding WindowState, RelativeSource={RelativeSource AncestorType=Window}}"
+                        Value="Maximized">
+                <Setter Property="Visibility" Value="Visible"/>
+            </DataTrigger>
+            <DataTrigger Binding="{Binding WindowState, RelativeSource={RelativeSource AncestorType=Window}}"
+                        Value="Normal">
+                <Setter Property="Visibility" Value="Collapsed"/>
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="TitleBarButtonMaximize" TargetType="Button" BasedOn="{StaticResource TitleBarButton}">
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding WindowState, RelativeSource={RelativeSource AncestorType=Window}}"
+                        Value="Maximized">
+                <Setter Property="Visibility" Value="Collapsed"/>
+            </DataTrigger>
+            <DataTrigger Binding="{Binding WindowState, RelativeSource={RelativeSource AncestorType=Window}}"
+                        Value="Normal">
+                <Setter Property="Visibility" Value="Visible"/>
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+</ResourceDictionary>
