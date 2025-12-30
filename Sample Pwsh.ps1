@@ -73,8 +73,6 @@ function ConvertTo-Delegate {
             $ReflectionMethod = $Target.GetType().GetMethod($PSMethod.Name)
         }
 
-        if ($null -eq $ReflectionMethod) {Write-Host 'here'}
-
         $ParameterTypes = [System.Linq.Enumerable]::Select($ReflectionMethod.GetParameters(), [func[object, object]] { $args[0].parametertype })
         $ConcatMethodTypes = $ParameterTypes + $ReflectionMethod.ReturnType
 
