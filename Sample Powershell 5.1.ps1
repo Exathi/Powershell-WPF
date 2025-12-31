@@ -73,8 +73,6 @@ function ConvertTo-Delegate {
             $ReflectionMethod = $Target.GetType().GetMethod($PSMethod.Name)
         }
 
-        if ($null -eq $ReflectionMethod) {Write-Host 'here'}
-
         $ParameterTypes = [System.Linq.Enumerable]::Select($ReflectionMethod.GetParameters(), [func[object, object]] { $args[0].parametertype })
         $ConcatMethodTypes = $ParameterTypes + $ReflectionMethod.ReturnType
 
@@ -124,6 +122,7 @@ class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChang
     }
 
     [void]UpdateViewFromThread($UpdateValue){
+        if ($null -eq $UpdateValue) { return }
 		$this.psobject.Dispatcher.BeginInvoke(9, $this.psobject.UpdateViewDelegate, $UpdateValue)
 	}
 
@@ -133,9 +132,9 @@ class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChang
 		}
 	}
 
-    [void]StartAsync($MethodToRunAsync) {
+    [void]StartAsync($MethodToRunAsync, [ViewModelBase]$Target, $CommandParameter) {
         $Powershell = [powershell]::Create()
-		$Powershell.RunspacePool = $this.psobject.RunspacePool
+		$Powershell.RunspacePool = $this.psobject.RunspacePool # Will use a default runspace if RunspacePool is $null
 
 		$reflectionMethod = $Powershell.GetType().GetMethod('EndInvoke')
         $parameterTypes = [System.Linq.Enumerable]::Select($reflectionMethod.GetParameters(), [func[object,object]]{$args[0].parametertype})
@@ -143,16 +142,26 @@ class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChang
         $delegateType = [System.Linq.Expressions.Expression]::GetDelegateType($concatMethodTypes)
         $EndInvokeDelegate = [delegate]::CreateDelegate($delegateType, $Powershell, $reflectionMethod.Name)
 
-        $Delegate = {
-			param($NoContextMethod, $Marshall)
-			$UpdateValue = $NoContextMethod.Invoke()
-			$Marshall.psobject.UpdateViewFromThread($UpdateValue)
-		}
+        $Delegate = if ($null -eq $CommandParameter) {
+            {
+                param($NoContextMethod, $ViewModelBase)
+                $UpdateValue = $NoContextMethod.Invoke()
+                $ViewModelBase.psobject.UpdateViewFromThread($UpdateValue)
+            }
+        } else {
+            {
+                param($NoContextMethod, $ViewModelBase, $CommandParameter)
+                $UpdateValue = $NoContextMethod.Invoke($CommandParameter)
+                $ViewModelBase.psobject.UpdateViewFromThread($UpdateValue)
+            }
+        }
+
         $NoContext = [scriptblock]::create($Delegate.ToString())
 
         $null = $Powershell.AddScript($NoContext)
         $null = $Powershell.AddParameter('NoContextMethod', $MethodToRunAsync)
-        $null = $Powershell.AddParameter('Marshall', $this)
+        $null = $Powershell.AddParameter('ViewModelBase', $Target)
+        if ($null -eq $CommandParameter) { $null = $Powershell.AddParameter('CommandParameter', $CommandParameter) }
         $Handle = $Powershell.BeginInvoke()
 
 		$TaskFactory = [System.Threading.Tasks.TaskFactory]::new([System.Threading.Tasks.TaskScheduler]::Default)
@@ -188,24 +197,33 @@ class ActionCommand : ViewModelBase, System.Windows.Input.ICommand  {
     }
 
     [void]Execute([object]$CommandParameter) {
-        try {
-            if ($this.psobject.Action) {
+        if ($this.psobject.Action) {
+            if ($this.psobject.IsAsync) {
+                $this.psobject.StartAsync($this.psobject.Action, $this.psobject.Target, $null)
+            } else {
                 $this.psobject.Action.Invoke()
-            } elseif ($this.psobject.ActionObject) {
+            }
+        } elseif ($this.psobject.ActionObject) {
+            if ($this.psobject.IsAsync) {
+                $this.psobject.StartAsync($this.psobject.ActionObject, $this.psobject.Target, $CommandParameter)
+            } else {
                 $this.psobject.ActionObject.Invoke($CommandParameter)
             }
-        } catch {
-            Write-Error "Error handling ActionCommand.Execute: $_" # Have never seen this activate
         }
     }
     # End ICommand Implementation
 
-    ActionCommand([Action]$Action) {
+    ActionCommand([System.Management.Automation.PSMethod]$Action) {
         $this.psobject.Action = $Action
+        $this.psobject.IsAsync = $false
+        $this.psobject.Target = $this
     }
 
-    ActionCommand([Action[object]]$Action) {
-        $this.psobject.ActionObject = $Action
+    ActionCommand([System.Management.Automation.PSMethod]$Action, [bool]$IsAsync, [ViewModelBase]$Target) {
+        $this.psobject.Action = $Action
+        $this.psobject.IsAsync = $IsAsync
+        if ($IsAsync) { $this.psobject.RunspacePool = $Target.psobject.RunspacePool }
+        $this.psobject.Target = $Target
     }
 
     [void]RaiseCanExecuteChanged() {
@@ -215,6 +233,8 @@ class ActionCommand : ViewModelBase, System.Windows.Input.ICommand  {
         }
     }
 
+    [ViewModelBase]$Target
+    [bool]$IsAsync = $false
     $Action
     $ActionObject
     $CanExecuteAction
@@ -228,10 +248,17 @@ class ActionCommand : ViewModelBase, System.Windows.Input.ICommand  {
 
 # [NoRunspaceAffinity()]
 class MyViewModel : ViewModelBase {
+    # Buttons
+	$LongTaskCommand
+    $AnotherTaskCommand
+
+    # View
 	$SharedResource = 10
-	$SampleCommand
+    $DataGridJobsLock = [object]::new()
+    $DataGridJobs = [System.Collections.ObjectModel.ObservableCollection[Object]]::new()
 
     MyViewModel() {
+        # All changing [string] view properties must be added this way.
 		$this | Add-Member -Name SharedResource -MemberType ScriptProperty -Value {
 			return $this.psobject.SharedResource
 		} -SecondValue {
@@ -242,14 +269,28 @@ class MyViewModel : ViewModelBase {
 		}
     }
 
-	[void]SampleMethod(){
-        $this.psobject.StartAsync($this.psobject.LongTask)
-	}
-
-	[object]LongTask(){
+	[pscustomobject]LongTask(){
         $Random = Get-Random -Min 100 -Max 5000
 		Start-Sleep -Milliseconds $Random
 		return [pscustomobject]@{SharedResource = $Random}
+	}
+
+	[void]AnotherTask(){
+        $DataRow = [PSCustomObject]@{Id = [runspace]::DefaultRunspace.Id; Type = 'Start'; Time = Get-Date; Snapshot = $this.psobject.SharedResource; Method = 'AnotherTask'}
+        $this.psobject.DataGridJobs.Add($DataRow) # enabled by the following in the UI thread!: [System.Windows.Data.BindingOperations]::EnableCollectionSynchronization($MyViewModel.psobject.DataGridJobs, $MyViewModel.psobject.DataGridJobsLock)
+
+        $DummyItems = 1..10
+        $DummyItems | ForEach-Object {
+            $DataRow = [PSCustomObject]@{Id = [runspace]::DefaultRunspace.Id; Type = 'Processing'; Time = Get-Date; Snapshot = $this.psobject.SharedResource; Method = 'AnotherTask'}
+
+            $this.psobject.DataGridJobs.Add($DataRow)
+
+            $Random = Get-Random -Min 100 -Max 5000
+            Start-Sleep -Milliseconds $Random
+        }
+
+        $DataRow = [PSCustomObject]@{Id = [runspace]::DefaultRunspace.Id; Type = 'End'; Time = Get-Date; Snapshot = $this.psobject.SharedResource; Method = 'AnotherTask'}
+        $this.psobject.DataGridJobs.Add($DataRow)
 	}
 }
 
@@ -257,7 +298,7 @@ class MyViewModel : ViewModelBase {
 <Window
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     Title="ps5.1"
-    WindowStartupLocation="CenterScreen" 
+    WindowStartupLocation="CenterScreen"
     Width="640"
     Height="720">
     <Grid>
@@ -279,47 +320,77 @@ class MyViewModel : ViewModelBase {
                         </Grid.RowDefinitions>
 
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding SharedResource, UpdateSourceTrigger=PropertyChanged}" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        <Button Grid.Row="1" Grid.Column="0" Name="Increment" Content="+" Command="{Binding SampleCommand}" Style="{DynamicResource AccentButtonStyle}" Margin="5" Width="50" HorizontalAlignment="Center"/>
+                        <Button Grid.Row="1" Grid.Column="0" Name="Increment" Content="+" Command="{Binding LongTaskCommand}" Style="{DynamicResource AccentButtonStyle}" Margin="5" Width="50" HorizontalAlignment="Center"/>
                     </Grid>
             </TabItem>
 			<TabItem>
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xF16C;" VerticalAlignment="Center" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"/>
-                        <TextBlock Text="Tab2" Margin="5" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"/>
+                        <TextBlock Text="AnotherTask" Margin="5" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"/>
                     </StackPanel>
                 </TabItem.Header>
-                <StackPanel Margin="5">
-                    <TextBlock Text="Tab2" FontSize="20" FontWeight="Bold" />
-                </StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="50" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Button Grid.Row="0" Grid.Column="0" Name="SnapshotButton" Content="Run long task and log to DataGrid" Command="{Binding AnotherTaskCommand}" Style="{DynamicResource AccentButtonStyle}" Margin="5" Width="250" HorizontalAlignment="Center"/>
+
+                    <DataGrid Grid.Row="1" Grid.Column="0" Name="DataGridJobs" ItemsSource="{Binding DataGridJobs}" ColumnWidth="*" IsReadOnly="True" AutoGenerateColumns="False">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Id"
+                                                Width="25"
+                                                Binding="{Binding Path=Id}" />
+                            <DataGridTextColumn Header="Type"
+                                                Width="50"
+                                                Binding="{Binding Path=Type}" />
+                            <DataGridTextColumn Header="Time"
+                                                Width="*"
+                                                Binding="{Binding Path=Time}" />
+                            <DataGridTextColumn Header="Snapshot"
+                                                Width="*"
+                                                Binding="{Binding Path=Snapshot}" />
+                            <DataGridTextColumn Header="Method"
+                                                Width="*"
+                                                Binding="{Binding Path=Method}" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
             </TabItem>
         </TabControl>
     </Grid>
 </Window>
 '@
 
-# ConcurrentDictionary just to highlight thread shenanigans going on. Not needed.
+# ConcurrentDictionary just to highlight thread shenanigans going on. Not needed but can be made available in the runspacepool.
+# Load Xaml and ViewModel
 $SharedDict = [System.Collections.Concurrent.ConcurrentDictionary[string,object]]::new()
 $SharedDict.Window = [System.Windows.Markup.XamlReader]::Load(([System.Xml.XmlNodeReader]::new($xaml)))
-$SharedDict.VM = New-UnboundClassInstance MyViewModel
+$SharedDict.MainViewModel = New-UnboundClassInstance MyViewModel
 
+# Create runspacepool for async buttons
 $State = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault()
 # $RunspaceVariable = New-Object System.Management.Automation.Runspaces.SessionStateVariableEntry -ArgumentList 'SharedDict', $SharedDict, $null
 # $State.Variables.Add($RunspaceVariable)
 $RunspacePool = [RunspaceFactory]::CreateRunspacePool(1, $([int]$env:NUMBER_OF_PROCESSORS + 1), $State, (Get-Host))
 $RunspacePool.Open()
-$SharedDict.VM.psobject.RunspacePool = $RunspacePool
+$SharedDict.MainViewModel.psobject.RunspacePool = $RunspacePool
 
-$Action = ConvertTo-Delegate -PSMethod $SharedDict.VM.psobject.SampleMethod -Target $SharedDict.VM -IsPSObject
-$SharedDict.VM.psobject.SampleCommand = [ActionCommand]::new($Action)
+# Create buttons
+# $Action = ConvertTo-Delegate -PSMethod $SharedDict.MainViewModel.psobject.SampleMethod -Target $SharedDict.MainViewModel -IsPSObject
+$SharedDict.MainViewModel.psobject.LongTaskCommand = [ActionCommand]::new($SharedDict.MainViewModel.psobject.LongTask, $true, $SharedDict.MainViewModel)
+$SharedDict.MainViewModel.psobject.AnotherTaskCommand = [ActionCommand]::new($SharedDict.MainViewModel.psobject.AnotherTask, $true, $SharedDict.MainViewModel)
 
-$SharedDict.Window.DataContext = $SharedDict.VM
-$SharedDict.Window.add_Loaded({
-    # We need to add the dispatcher of the window to the unbound MyViewModel instance because it started without one.
-    # Because MyViewModel started without a runspace, 'Write-Verbose "SharedResource is set to $value" -Verbose' is sent to the void.
-    # This isn't required for pwsh.
-    $SharedDict.VM.psobject.Dispatcher = [System.Windows.Threading.Dispatcher]::CurrentDispatcher
-    $SharedDict.VM.SharedResource = 11
-})
+# Powershell 5.1 only
+$SharedDict.MainViewModel.psobject.Dispatcher = [System.Windows.Threading.Dispatcher]::CurrentDispatcher
+
+# Set DataContext and enable collection thread safety
+$SharedDict.Window.DataContext = $SharedDict.MainViewModel
+[System.Windows.Data.BindingOperations]::EnableCollectionSynchronization($SharedDict.MainViewModel.psobject.DataGridJobs, $SharedDict.MainViewModel.psobject.DataGridJobsLock)
 
 $SharedDict.Window.ShowDialog()
