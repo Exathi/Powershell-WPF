@@ -122,6 +122,7 @@ class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChang
     }
 
     [void]UpdateViewFromThread($UpdateValue){
+        if ($null -eq $UpdateValue) { return }
 		$this.psobject.Dispatcher.BeginInvoke(9, $this.psobject.UpdateViewDelegate, $UpdateValue)
 	}
 
