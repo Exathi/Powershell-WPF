@@ -132,9 +132,9 @@ class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChang
 		}
 	}
 
-    [void]StartAsync($MethodToRunAsync) {
+    [void]StartAsync($MethodToRunAsync, [ViewModelBase]$Target, $CommandParameter) {
         $Powershell = [powershell]::Create()
-		$Powershell.RunspacePool = $this.psobject.RunspacePool
+		$Powershell.RunspacePool = $this.psobject.RunspacePool # Will use a default runspace if RunspacePool is $null
 
 		$reflectionMethod = $Powershell.GetType().GetMethod('EndInvoke')
         $parameterTypes = [System.Linq.Enumerable]::Select($reflectionMethod.GetParameters(), [func[object,object]]{$args[0].parametertype})
@@ -142,16 +142,26 @@ class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChang
         $delegateType = [System.Linq.Expressions.Expression]::GetDelegateType($concatMethodTypes)
         $EndInvokeDelegate = [delegate]::CreateDelegate($delegateType, $Powershell, $reflectionMethod.Name)
 
-        $Delegate = {
-			param($NoContextMethod, $Marshall)
+        $Delegate = if ($null -eq $CommandParameter) {
+            {
+                param($NoContextMethod, $ViewModelBase)
 			$UpdateValue = $NoContextMethod.Invoke()
-			$Marshall.psobject.UpdateViewFromThread($UpdateValue)
+                $ViewModelBase.psobject.UpdateViewFromThread($UpdateValue)
+            }
+        } else {
+            {
+                param($NoContextMethod, $ViewModelBase, $CommandParameter)
+                $UpdateValue = $NoContextMethod.Invoke($CommandParameter)
+                $ViewModelBase.psobject.UpdateViewFromThread($UpdateValue)
 		}
+        }
+
         $NoContext = [scriptblock]::create($Delegate.ToString())
 
         $null = $Powershell.AddScript($NoContext)
         $null = $Powershell.AddParameter('NoContextMethod', $MethodToRunAsync)
-        $null = $Powershell.AddParameter('Marshall', $this)
+        $null = $Powershell.AddParameter('ViewModelBase', $Target)
+        if ($null -eq $CommandParameter) { $null = $Powershell.AddParameter('CommandParameter', $CommandParameter) }
         $Handle = $Powershell.BeginInvoke()
 
 		$TaskFactory = [System.Threading.Tasks.TaskFactory]::new([System.Threading.Tasks.TaskScheduler]::Default)
@@ -187,24 +197,33 @@ class ActionCommand : ViewModelBase, System.Windows.Input.ICommand  {
     }
 
     [void]Execute([object]$CommandParameter) {
-        try {
-            if ($this.psobject.Action) {
+        if ($this.psobject.Action) {
+            if ($this.psobject.IsAsync) {
+                $this.psobject.StartAsync($this.psobject.Action, $this.psobject.Target, $null)
+            } else {
                 $this.psobject.Action.Invoke()
-            } elseif ($this.psobject.ActionObject) {
+            }
+        } elseif ($this.psobject.ActionObject) {
+            if ($this.psobject.IsAsync) {
+                $this.psobject.StartAsync($this.psobject.ActionObject, $this.psobject.Target, $CommandParameter)
+            } else {
                 $this.psobject.ActionObject.Invoke($CommandParameter)
             }
-        } catch {
-            Write-Error "Error handling ActionCommand.Execute: $_" # Have never seen this activate
         }
     }
     # End ICommand Implementation
 
-    ActionCommand([Action]$Action) {
+    ActionCommand([System.Management.Automation.PSMethod]$Action) {
         $this.psobject.Action = $Action
+        $this.psobject.IsAsync = $false
+        $this.psobject.Target = $this
     }
 
-    ActionCommand([Action[object]]$Action) {
-        $this.psobject.ActionObject = $Action
+    ActionCommand([System.Management.Automation.PSMethod]$Action, [bool]$IsAsync, [ViewModelBase]$Target) {
+        $this.psobject.Action = $Action
+        $this.psobject.IsAsync = $IsAsync
+        if ($IsAsync) { $this.psobject.RunspacePool = $Target.psobject.RunspacePool }
+        $this.psobject.Target = $Target
     }
 
     [void]RaiseCanExecuteChanged() {
@@ -214,6 +233,8 @@ class ActionCommand : ViewModelBase, System.Windows.Input.ICommand  {
         }
     }
 
+    [ViewModelBase]$Target
+    [bool]$IsAsync = $false
     $Action
     $ActionObject
     $CanExecuteAction
