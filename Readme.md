@@ -17,11 +17,9 @@ Add-Type -AssemblyName PresentationFramework, WindowsBase -ErrorAction Stop
 ```
 
 ### Pwsh and Powershell compatibility:
-* Both Pwsh and Powershell can use the same class setup. The only difference is the ViewModel setup and ActionCommand setup.
+* Both Pwsh and Powershell can use the same class setup. The only difference is the ViewModel setup.
 
 * Pwsh has access to the attribute `[NoRunspaceAffinity()]`. Powershell 5.1 needs to create the class without a runspace.
-
-* Pwsh can automatically convert `[PSMethod]` to `[Action]`. Powershell 5.1 does not have this automatic conversion.
 
 ``` Powershell
 # Pwsh
@@ -30,11 +28,23 @@ $ViewModel.psobject.WriteVerboseCommand = [ActionCommand]::new($ViewModel.psobje
 $ViewModel.WriteVerboseMethod()
 PS> VERBOSE: Prints to host
 
-# Powershell 5.1
+# Powershell
 $ViewModel = New-UnboundClassInstance MyViewModel
-$Action = ConvertTo-Delegate -PSMethod $ViewModel.psobject.WriteVerboseMethod -Target $ViewModel -IsPSObject
-$ViewModel.psobject.WriteVerboseCommand = [ActionCommand]::new($Action)
+$ViewModel.psobject.Dispatcher = [System.Windows.Threading.Dispatcher]::CurrentDispatcher
+$ViewModel.psobject.WriteVerboseCommand = [ActionCommand]::new($ViewModel.psobject.WriteVerboseMethod)
 $ViewModel.WriteVerboseMethod()
 PS> # Stream not redirected to this host. Lost to the void.
 ```
+
+### Updating the view from other runspaces
+Everything that interacts with the view must be updated via the wpf Dispatcher.
+
+`StartAsync` invokes the provided PSMethod and then follows with `UpdateViewFromThread` which calls the dispatcher to use the return value (pscustomobject of view properties) of the PSMethod and update the viewmodel. If the return value is $null, the dispatcher will not be called.
+``` Powershell
+$ReturnValue = [pscustomobject]@{
+    ViewProperty1 = Value1
+    ViewProperty2 = Value2
+}
+```
+
 
