@@ -145,7 +145,7 @@ class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChang
         $Delegate = if ($null -eq $CommandParameter) {
             {
                 param($NoContextMethod, $ViewModelBase)
-			$UpdateValue = $NoContextMethod.Invoke()
+                $UpdateValue = $NoContextMethod.Invoke()
                 $ViewModelBase.psobject.UpdateViewFromThread($UpdateValue)
             }
         } else {
@@ -153,7 +153,7 @@ class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChang
                 param($NoContextMethod, $ViewModelBase, $CommandParameter)
                 $UpdateValue = $NoContextMethod.Invoke($CommandParameter)
                 $ViewModelBase.psobject.UpdateViewFromThread($UpdateValue)
-		}
+            }
         }
 
         $NoContext = [scriptblock]::create($Delegate.ToString())
@@ -278,7 +278,7 @@ class MyViewModel : ViewModelBase {
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     Title="ps7"
     ThemeMode="Dark"
-    WindowStartupLocation="CenterScreen" 
+    WindowStartupLocation="CenterScreen"
     Width="640"
     Height="720">
     <Grid>
@@ -319,11 +319,13 @@ class MyViewModel : ViewModelBase {
 </Window>
 '@
 
-# ConcurrentDictionary just to highlight thread shenanigans going on. Not needed.
+# ConcurrentDictionary just to highlight thread shenanigans going on. Not needed but can be made available in the runspacepool.
+# Load Xaml and ViewModel
 $SharedDict = [System.Collections.Concurrent.ConcurrentDictionary[string,object]]::new()
 $SharedDict.Window = [System.Windows.Markup.XamlReader]::Load(([System.Xml.XmlNodeReader]::new($xaml)))
 $SharedDict.VM = [MyViewModel]::new()
 
+# Create runspacepool for async buttons
 $State = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault()
 # $RunspaceVariable = New-Object System.Management.Automation.Runspaces.SessionStateVariableEntry -ArgumentList 'SharedDict', $SharedDict, $null
 # $State.Variables.Add($RunspaceVariable)
@@ -331,8 +333,8 @@ $RunspacePool = [RunspaceFactory]::CreateRunspacePool(1, $([int]$env:NUMBER_OF_P
 $RunspacePool.Open()
 $SharedDict.VM.psobject.RunspacePool = $RunspacePool
 
-$SharedDict.VM.psobject.SampleCommand = [ActionCommand]::new($SharedDict.VM.psobject.SampleMethod)
+# Create buttons
 
-$SharedDict.Window.DataContext = $SharedDict.VM
+# Set DataContext and enable collection thread safety
 
 $SharedDict.Window.ShowDialog()
