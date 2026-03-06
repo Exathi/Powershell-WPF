@@ -114,30 +114,30 @@ class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChang
 
     [Delegate]CreateDelegate([System.Management.Automation.PSMethod]$Method) {
         $reflectionMethod = $this.psobject.GetType().GetMethod($Method.Name)
-        $parameterTypes = [System.Linq.Enumerable]::Select($reflectionMethod.GetParameters(), [func[object,object]]{$args[0].parametertype})
+        $parameterTypes = [System.Linq.Enumerable]::Select($reflectionMethod.GetParameters(), [func[object, object]] { $args[0].parametertype })
         $concatMethodTypes = $parameterTypes + $reflectionMethod.ReturnType
         $delegateType = [System.Linq.Expressions.Expression]::GetDelegateType($concatMethodTypes)
         $delegate = [delegate]::CreateDelegate($delegateType, $this, $reflectionMethod.Name)
         return $delegate
     }
 
-    [void]UpdateViewFromThread($UpdateValue){
+    [void]UpdateViewFromThread($UpdateValue) {
         if ($null -eq $UpdateValue) { return }
-		$this.psobject.Dispatcher.BeginInvoke(9, $this.psobject.UpdateViewDelegate, $UpdateValue)
-	}
+        $this.psobject.Dispatcher.BeginInvoke(9, $this.psobject.UpdateViewDelegate, $UpdateValue)
+    }
 
-    [void]UpdateView($UpdateValue){
-		$UpdateValue.psobject.Properties | ForEach-Object {
-			$this.$($_.Name) = $_.Value
-		}
-	}
+    [void]UpdateView($UpdateValue) {
+        $UpdateValue.psobject.Properties | ForEach-Object {
+            $this.$($_.Name) = $_.Value
+        }
+    }
 
     [void]StartAsync($MethodToRunAsync, [ViewModelBase]$Target, $CommandParameter) {
         $Powershell = [powershell]::Create()
-		$Powershell.RunspacePool = $this.psobject.RunspacePool # Will use a default runspace if RunspacePool is $null
+        $Powershell.RunspacePool = $this.psobject.RunspacePool # Will use a default runspace if RunspacePool is $null
 
-		$reflectionMethod = $Powershell.GetType().GetMethod('EndInvoke')
-        $parameterTypes = [System.Linq.Enumerable]::Select($reflectionMethod.GetParameters(), [func[object,object]]{$args[0].parametertype})
+        $reflectionMethod = $Powershell.GetType().GetMethod('EndInvoke')
+        $parameterTypes = [System.Linq.Enumerable]::Select($reflectionMethod.GetParameters(), [func[object, object]] { $args[0].parametertype })
         $concatMethodTypes = $parameterTypes + $reflectionMethod.ReturnType
         $delegateType = [System.Linq.Expressions.Expression]::GetDelegateType($concatMethodTypes)
         $EndInvokeDelegate = [delegate]::CreateDelegate($delegateType, $Powershell, $reflectionMethod.Name)
@@ -164,13 +164,13 @@ class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChang
         if ($null -eq $CommandParameter) { $null = $Powershell.AddParameter('CommandParameter', $CommandParameter) }
         $Handle = $Powershell.BeginInvoke()
 
-		$TaskFactory = [System.Threading.Tasks.TaskFactory]::new([System.Threading.Tasks.TaskScheduler]::Default)
+        $TaskFactory = [System.Threading.Tasks.TaskFactory]::new([System.Threading.Tasks.TaskScheduler]::Default)
         $Task = $TaskFactory.FromAsync($Handle, $EndInvokeDelegate) # Automagically call EndInvoke asynchronously when completed! AND returns a task! # No need to start a runspace dedicated to clean up!
-		$DisposeTaskDelegate = $this.psobject.CreateDelegate($this.psobject.DisposeTask)
-		$null = $Task.ContinueWith($DisposeTaskDelegate, $Powershell)
+        $DisposeTaskDelegate = $this.psobject.CreateDelegate($this.psobject.DisposeTask)
+        $null = $Task.ContinueWith($DisposeTaskDelegate, $Powershell)
     }
 
-	DisposeTask([System.Threading.Tasks.Task]$Task, [object]$Powershell) {
+    DisposeTask([System.Threading.Tasks.Task]$Task, [object]$Powershell) {
         $Powershell.Dispose()
     }
 
@@ -179,7 +179,7 @@ class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChang
     $RunspacePool
 }
 
-class ActionCommand : ViewModelBase, System.Windows.Input.ICommand  {
+class ActionCommand : ViewModelBase, System.Windows.Input.ICommand {
     # ICommand Implementation
     [System.EventHandler]$InternalCanExecuteChanged
     add_CanExecuteChanged([EventHandler] $value) {
@@ -229,7 +229,7 @@ class ActionCommand : ViewModelBase, System.Windows.Input.ICommand  {
     [void]RaiseCanExecuteChanged() {
         $eCanExecuteChanged = $this.psobject.InternalCanExecuteChanged
         if ($eCanExecuteChanged) {
-			$eCanExecuteChanged.Invoke($this, [System.EventArgs]::Empty)
+            $eCanExecuteChanged.Invoke($this, [System.EventArgs]::Empty)
         }
     }
 
@@ -249,39 +249,39 @@ class ActionCommand : ViewModelBase, System.Windows.Input.ICommand  {
 [NoRunspaceAffinity()]
 class MyViewModel : ViewModelBase {
     # Buttons
-	$LongTaskCommand
+    $LongTaskCommand
     $AnotherTaskCommand
 
     # View
-	$SharedResource = 10
+    $SharedResource = 10
     $DataGridJobsLock = [object]::new()
     $DataGridJobs = [System.Collections.ObjectModel.ObservableCollection[Object]]::new()
 
     MyViewModel() {
         # All changing [string] view properties must be added this way.
-		$this | Add-Member -Name SharedResource -MemberType ScriptProperty -Value {
-			return $this.psobject.SharedResource
-		} -SecondValue {
-			param($value)
-			$this.psobject.SharedResource = $value
-			$this.psobject.RaisePropertyChanged('SharedResource')
+        $this | Add-Member -Name SharedResource -MemberType ScriptProperty -Value {
+            return $this.psobject.SharedResource
+        } -SecondValue {
+            param($value)
+            $this.psobject.SharedResource = $value
+            $this.psobject.RaisePropertyChanged('SharedResource')
             Write-Verbose "SharedResource is set to $value" -Verbose
-		}
+        }
     }
 
-	[pscustomobject]LongTask(){
+    [pscustomobject]LongTask() {
         $Random = Get-Random -Min 100 -Max 5000
-		Start-Sleep -Milliseconds $Random
-		return [pscustomobject]@{SharedResource = $Random}
-	}
+        Start-Sleep -Milliseconds $Random
+        return [pscustomobject]@{SharedResource = $Random }
+    }
 
-	[void]AnotherTask(){
-        $DataRow = [PSCustomObject]@{Id = [runspace]::DefaultRunspace.Id; Type = 'Start'; Time = Get-Date; Snapshot = $this.psobject.SharedResource; Method = 'AnotherTask'}
+    [void]AnotherTask() {
+        $DataRow = [PSCustomObject]@{Id = [runspace]::DefaultRunspace.Id; Type = 'Start'; Time = Get-Date; Snapshot = $this.psobject.SharedResource; Method = 'AnotherTask' }
         $this.psobject.DataGridJobs.Add($DataRow) # enabled by the following in the UI thread!: [System.Windows.Data.BindingOperations]::EnableCollectionSynchronization($MyViewModel.psobject.DataGridJobs, $MyViewModel.psobject.DataGridJobsLock)
 
         $DummyItems = 1..10
         $DummyItems | ForEach-Object -Parallel {
-            $DataRow = [PSCustomObject]@{Id = [runspace]::DefaultRunspace.Id; Type = 'Processing'; Time = Get-Date; Snapshot = "$(($using:this).psobject.SharedResource)"; Method = 'AnotherTask'}
+            $DataRow = [PSCustomObject]@{Id = [runspace]::DefaultRunspace.Id; Type = 'Processing'; Time = Get-Date; Snapshot = "$(($using:this).psobject.SharedResource)"; Method = 'AnotherTask' }
             # The below is not the same as above! -> "$(($using:this).psobject.SharedResource)" vs "$($using:this.psobject.SharedResource)"
             # $DataRow = [PSCustomObject]@{Id = [runspace]::DefaultRunspace.Id; Type = 'Processing'; Time = Get-Date; Snapshot = "$($using:this.psobject.SharedResource)"; Method = 'AnotherTask'}
 
@@ -291,9 +291,9 @@ class MyViewModel : ViewModelBase {
             Start-Sleep -Milliseconds $Random
         } -ThrottleLimit 3
 
-        $DataRow = [PSCustomObject]@{Id = [runspace]::DefaultRunspace.Id; Type = 'End'; Time = Get-Date; Snapshot = $this.psobject.SharedResource; Method = 'AnotherTask'}
+        $DataRow = [PSCustomObject]@{Id = [runspace]::DefaultRunspace.Id; Type = 'End'; Time = Get-Date; Snapshot = $this.psobject.SharedResource; Method = 'AnotherTask' }
         $this.psobject.DataGridJobs.Add($DataRow)
-	}
+    }
 }
 
 [xml]$xaml = @'
@@ -372,7 +372,7 @@ class MyViewModel : ViewModelBase {
 
 # ConcurrentDictionary just to highlight thread shenanigans going on. Not needed but can be made available in the runspacepool.
 # Load Xaml and ViewModel
-$SharedDict = [System.Collections.Concurrent.ConcurrentDictionary[string,object]]::new()
+$SharedDict = [System.Collections.Concurrent.ConcurrentDictionary[string, object]]::new()
 $SharedDict.Window = [System.Windows.Markup.XamlReader]::Load(([System.Xml.XmlNodeReader]::new($xaml)))
 $SharedDict.MainViewModel = [MyViewModel]::new()
 
