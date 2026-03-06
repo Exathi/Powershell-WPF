@@ -161,7 +161,7 @@ class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChang
         $null = $Powershell.AddScript($NoContext)
         $null = $Powershell.AddParameter('NoContextMethod', $MethodToRunAsync)
         $null = $Powershell.AddParameter('ViewModelBase', $Target)
-        if ($null -eq $CommandParameter) { $null = $Powershell.AddParameter('CommandParameter', $CommandParameter) }
+        if ($null -ne $CommandParameter) { $null = $Powershell.AddParameter('CommandParameter', $CommandParameter) }
         $Handle = $Powershell.BeginInvoke()
 
         $TaskFactory = [System.Threading.Tasks.TaskFactory]::new([System.Threading.Tasks.TaskScheduler]::Default)
