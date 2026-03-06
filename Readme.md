@@ -47,4 +47,15 @@ $ReturnValue = [pscustomobject]@{
 }
 ```
 
+### Why not Start-ThreadJob?
+Start-ThreadJob alternative feels much slower and you'll want something to clean up the jobs.
 
+``` Powershell
+# The entirety of StartAsync() can be replaced with:
+
+Start-ThreadJob -Scriptblock {
+	param($MethodToRunAsync, $ViewModelBase)
+	$UpdateValue = $MethodToRunAsync.Invoke()
+	$ViewModelBase.psobject.UpdateViewFromThread($UpdateValue)
+} -ArgumentList $MethodToRunAsync, $Target
+```
