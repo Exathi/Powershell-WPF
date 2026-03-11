@@ -10,6 +10,12 @@ An **Asynchronous** PowerShell UI! Supported by a ViewModel and Command Bindings
 
 Revisited and simplified for Pwsh. Previous version is in the archive for those that followed it and for some obscure findings.
 
+
+
+https://github.com/user-attachments/assets/caaab235-4286-406f-b3a9-e026df59c0e0
+
+
+
 ### Check out the sample:
 ``` Powershell
 Add-Type -AssemblyName PresentationFramework, WindowsBase -ErrorAction Stop
