@@ -219,23 +219,18 @@ class MyViewModel : ViewModelBase {
     # Buttons
     $LongTaskCommand
     $AnotherTaskCommand
+    $ProgressBarCommand
+    $ProgressPauseCommand
 
     # View
     $SharedResource = 10
     $DataGridJobsLock = [object]::new()
     $DataGridJobs = [System.Collections.ObjectModel.ObservableCollection[Object]]::new()
+    $Status = 'Pause'
+    [int]$StatusPercent = 0 # must be type int else it defaults to string
+    $StatusPause = $false
 
-    MyViewModel() {
-        # All changing [string] view properties must be added this way.
-        $this | Add-Member -Name SharedResource -MemberType ScriptProperty -Value {
-            return $this.psobject.SharedResource
-        } -SecondValue {
-            param($value)
-            $this.psobject.SharedResource = $value
-            $this.psobject.RaisePropertyChanged('SharedResource')
-            Write-Verbose "SharedResource is set to $value" -Verbose
-        }
-    }
+    MyViewModel() {}
 
     [pscustomobject]LongTask() {
         $Random = Get-Random -Min 100 -Max 5000
@@ -261,6 +256,32 @@ class MyViewModel : ViewModelBase {
 
         $DataRow = [PSCustomObject]@{Id = [runspace]::DefaultRunspace.Id; Type = 'End'; Time = Get-Date; Snapshot = $this.psobject.SharedResource; Method = 'AnotherTask' }
         $this.psobject.DataGridJobs.Add($DataRow)
+    }
+
+    [void]ProgressBarReport() {
+        try {
+            $Start = 1
+            $End = 200000
+            $Start..$End | ForEach-Object {
+                $Progress = ($_ / $End * 100)
+                if ($Progress % 1 -eq 0) { $this.psobject.UpdateViewFromThread([pscustomobject]@{StatusPercent = $Progress }) }
+
+                while ($this.psobject.StatusPause) {
+                    Start-Sleep -Milliseconds 50
+                }
+
+                Start-Sleep -Milliseconds (Get-Random -Minimum 0 -Maximum 1)
+            }
+        } catch {
+            $_
+        } finally {
+            $this.psobject.ProgressBarCommand.psobject.RemoveWorkerFromThread()
+        }
+    }
+
+    [void]ProgressBarPause() {
+        $this.StatusPause = !$this.StatusPause
+        $this.Status = if ($this.Status -eq 'Pause') { 'Resume' } else { 'Pause' }
     }
 }
 
@@ -333,6 +354,29 @@ class MyViewModel : ViewModelBase {
                     </DataGrid>
                 </Grid>
             </TabItem>
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock FontFamily="{StaticResource SymbolThemeFontFamily}" Text="&#xEB52;" VerticalAlignment="Center" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"/>
+                        <TextBlock Text="ProgressBar" Margin="5" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="30" />
+                        <RowDefinition Height="30" />
+                        <RowDefinition Height="50" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="1" Text="{Binding Status}" Margin="5" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"/>
+                    <ProgressBar Grid.Row="2" Value="{Binding StatusPercent}" Minimum="0" Maximum="100" Height="20"/>
+                    <StackPanel Grid.Row="3" Orientation="Horizontal">
+                        <Button Name="ProgressButtonStart" Content="Start" Command="{Binding ProgressBarCommand}" Style="{DynamicResource AccentButtonStyle}" Margin="5" Width="80" HorizontalAlignment="Left"/>
+                        <Button Name="ProgressButtonPause" Content="{Binding Status}" Command="{Binding ProgressPauseCommand}" Margin="5" Width="80" HorizontalAlignment="Left"/>
+                    </StackPanel>
+                </Grid>
+            </TabItem>
         </TabControl>
     </Grid>
 </Window>
@@ -353,8 +397,10 @@ $RunspacePool.Open()
 $SharedDict.MainViewModel.psobject.RunspacePool = $RunspacePool
 
 # Create buttons
-$SharedDict.MainViewModel.psobject.LongTaskCommand = [ActionCommand]::new($SharedDict.MainViewModel.psobject.LongTask, $true, $SharedDict.MainViewModel)
-$SharedDict.MainViewModel.psobject.AnotherTaskCommand = [ActionCommand]::new($SharedDict.MainViewModel.psobject.AnotherTask, $true, $SharedDict.MainViewModel)
+$SharedDict.MainViewModel.psobject.LongTaskCommand = [ActionCommand]::new($SharedDict.MainViewModel.psobject.LongTask, $true, $SharedDict.MainViewModel, 0)
+$SharedDict.MainViewModel.psobject.AnotherTaskCommand = [ActionCommand]::new($SharedDict.MainViewModel.psobject.AnotherTask, $true, $SharedDict.MainViewModel, 0)
+$SharedDict.MainViewModel.psobject.ProgressBarCommand = [ActionCommand]::new($SharedDict.MainViewModel.psobject.ProgressBarReport, $true, $SharedDict.MainViewModel, 1)
+$SharedDict.MainViewModel.psobject.ProgressPauseCommand = [ActionCommand]::new($SharedDict.MainViewModel.psobject.ProgressBarPause)
 
 # Set DataContext and enable collection thread safety
 $SharedDict.Window.DataContext = $SharedDict.MainViewModel
