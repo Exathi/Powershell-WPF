@@ -79,14 +79,15 @@ class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChang
         $Handle = $Powershell.BeginInvoke()
 
         $TaskFactory = [System.Threading.Tasks.TaskFactory]::new([System.Threading.Tasks.TaskScheduler]::Default)
-        $Task = $TaskFactory.FromAsync($Handle, $EndInvokeDelegate) # Automagically call EndInvoke asynchronously when completed! AND returns a task! # No need to start a runspace dedicated to clean up!
-        $DisposeTaskDelegate = $this.psobject.CreateDelegate($this.psobject.DisposeTask)
-        $null = $Task.ContinueWith($DisposeTaskDelegate, $Powershell)
+        $null = $TaskFactory.FromAsync($Handle, $EndInvokeDelegate) # Automagically call EndInvoke asynchronously when completed! AND returns a task! # No need to start a runspace dedicated to clean up!
+        # Broken as of pwsh 7+.
+        # $DisposeTaskDelegate = $this.psobject.CreateDelegate($this.psobject.DisposeTask)
+        # $null = $Task.ContinueWith($DisposeTaskDelegate, $Powershell)
     }
 
-    DisposeTask([System.Threading.Tasks.Task]$Task, [object]$Powershell) {
-        $Powershell.Dispose()
-    }
+    # DisposeTask([System.Threading.Tasks.Task]$Task, [object]$Powershell) {
+    #     $Powershell.Dispose()
+    # }
 
     $UpdateViewDelegate
     $Dispatcher = [System.Windows.Threading.Dispatcher]::CurrentDispatcher
