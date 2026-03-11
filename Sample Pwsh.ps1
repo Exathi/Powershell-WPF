@@ -128,17 +128,31 @@ class ActionCommand : ViewModelBase, System.Windows.Input.ICommand {
     }
     # End ICommand Implementation
 
-    ActionCommand([System.Management.Automation.PSMethod]$Action) {
-        $this.psobject.Action = $Action
-        $this.psobject.IsAsync = $false
-        $this.psobject.Target = $this
+    ActionCommand([System.Management.Automation.PSMethod]$Action) : Base($false) {
+        $this.psobject.Init($Action, $false, $null, 0)
     }
 
-    ActionCommand([System.Management.Automation.PSMethod]$Action, [bool]$IsAsync, [ViewModelBase]$Target) {
+    ActionCommand([System.Management.Automation.PSMethod]$Action, [bool]$IsAsync, [ViewModelBase]$Target, [int]$Throttle) : Base($false) {
+        $this.psobject.Init($Action, $IsAsync, $Target, $Throttle)
+    }
+
+    hidden Init([System.Management.Automation.PSMethod]$Action, [bool]$IsAsync, [ViewModelBase]$Target, [int]$Throttle) {
         $this.psobject.Action = $Action
         $this.psobject.IsAsync = $IsAsync
         if ($IsAsync) { $this.psobject.RunspacePool = $Target.psobject.RunspacePool }
         $this.psobject.Target = $Target
+        $this.psobject.Throttle = $Throttle
+
+        $this | Add-Member -Name Workers -MemberType ScriptProperty -Value {
+            return $this.psobject.Workers
+        } -SecondValue {
+            param($value)
+            $this.psobject.Workers = $value
+            $this.psobject.RaisePropertyChanged('Workers')
+            $this.psobject.RaiseCanExecuteChanged()
+            # Write-Verbose "Workers is set to $value" -Verbose
+        }
+        $this.psobject.RemoveWorkerDelegate = $this.psobject.CreateDelegate($this.psobject.RemoveWorker)
     }
 
     [void]RaiseCanExecuteChanged() {
