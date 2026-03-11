@@ -70,7 +70,7 @@ class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChang
             }
         }
 
-        $NoContext = [scriptblock]::create($Delegate.ToString())
+        $NoContext = $Delegate.Ast.GetScriptBlock()
 
         $null = $Powershell.AddScript($NoContext)
         $null = $Powershell.AddParameter('NoContextMethod', $MethodToRunAsync)
