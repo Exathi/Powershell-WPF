@@ -112,18 +112,14 @@ class ActionCommand : ViewModelBase, System.Windows.Input.ICommand {
     }
 
     [void]Execute([object]$CommandParameter) {
-        if ($this.psobject.Action) {
-            if ($this.psobject.IsAsync) {
-                $this.psobject.StartAsync($this.psobject.Action, $this.psobject.Target, $null)
-            } else {
-                $this.psobject.Action.Invoke()
-            }
-        } elseif ($this.psobject.ActionObject) {
-            if ($this.psobject.IsAsync) {
-                $this.psobject.StartAsync($this.psobject.ActionObject, $this.psobject.Target, $CommandParameter)
-            } else {
-                $this.psobject.ActionObject.Invoke($CommandParameter)
-            }
+        if ($this.psobject.Throttle -gt 0) { $this.Workers++ }
+
+        $Delegate = if ($this.psobject.Action) { $this.psobject.Action } else { $this.psobject.ActionObject }
+
+        if ($this.psobject.IsAsync) {
+            $this.psobject.StartAsync($Delegate, $this.psobject.Target, $null)
+        } else {
+            $Delegate.Invoke()
         }
     }
     # End ICommand Implementation
@@ -162,6 +158,14 @@ class ActionCommand : ViewModelBase, System.Windows.Input.ICommand {
         }
     }
 
+    [void]RemoveWorker() {
+        $this.Workers--
+    }
+
+    [void]RemoveWorkerFromThread() {
+        $this.psobject.Dispatcher.BeginInvoke(9, $this.psobject.RemoveWorkerDelegate)
+    }
+
     [ViewModelBase]$Target
     [bool]$IsAsync = $false
     $Action
@@ -169,6 +173,7 @@ class ActionCommand : ViewModelBase, System.Windows.Input.ICommand {
     $CanExecuteAction
     $Workers = 0
     $Throttle = 0
+    $RemoveWorkerDelegate
 }
 
 
