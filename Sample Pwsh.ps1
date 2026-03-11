@@ -24,6 +24,40 @@ class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChang
 
     ViewModelBase() {
         $this.psobject.UpdateViewDelegate = $this.psobject.CreateDelegate($this.psobject.UpdateView)
+        $this.psobject.AddPropertyChangedToProperties()
+    }
+
+    ViewModelBase([bool]$AddDefault) {
+        $this.psobject.UpdateViewDelegate = $this.psobject.CreateDelegate($this.psobject.UpdateView)
+        if ($AddDefault) { $this.psobject.AddPropertyChangedToProperties() }
+    }
+
+    [void]AddPropertyChangedToProperties() {
+        $this.psobject.AddPropertyChangedToProperties($null)
+    }
+
+    [void]AddPropertyChangedToProperties([string[]]$Exclude) {
+        $PropertiesToExclude = 'PropertyChanged', 'UpdateViewDelegate', 'Dispatcher', 'RunspacePool' + $Exclude
+        $this.psobject.psobject.Members.Where({
+                $_.MemberType -eq 'Property' -and
+                $_.IsSettable -eq $true -and
+                $_.IsGettable -eq $true -and
+                $_.Name -notin $PropertiesToExclude
+            }
+        ).ForEach(
+            {
+                $Splat = @{
+                    Name = $_.Name
+                    MemberType = 'ScriptProperty'
+                    Value = [scriptblock]::Create('return ,$this.psobject.{0}' -f $_.Name)
+                    SecondValue = [scriptblock]::Create('param($value)
+                        $this.psobject.{0} = $value
+                        $this.psobject.RaisePropertyChanged("{0}")' -f $_.Name
+                    )
+                }
+                $this | Add-Member @Splat
+            }
+        )
     }
 
     [Delegate]CreateDelegate([System.Management.Automation.PSMethod]$Method) {
