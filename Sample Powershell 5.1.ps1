@@ -1,92 +1,6 @@
 Add-Type -AssemblyName PresentationFramework, WindowsBase -ErrorAction Stop
 Import-Module .\CreateClassInstanceHelper.psm1
 
-function New-WPFObject {
-    <#
-        .SYNOPSIS
-            Creates a WPF object with given Xaml from a string or file
-            Uses the dedicated wpf xaml reader rather than the xmlreader.
-        .PARAMETER BaseUri
-            Path to the root folder of xaml files. Must end with backslash '\' if pointing to a folder.
-            Or a path to a file.Xaml.
-            Untested idea - point to zip file?
-            Allows relative sources in the xaml. <ResourceDictionary Source="Common.Xaml" /> where Common.Xaml is allowed vs hard coding the fullpath C:\folder\Common.Xaml.
-        .EXAMPLE
-            -BaseUri "$PSScriptRoot\"
-            -BaseUri "C:\Test\Folder\"
-    #>
-    [CmdletBinding(DefaultParameterSetName = 'Path')]
-    param (
-        [Parameter(Mandatory, ValueFromPipeline, Position = 0, ParameterSetName = 'HereString')]
-        [Parameter(Mandatory, ValueFromPipeline, Position = 0, ParameterSetName = 'HereStringDynamic')]
-        [string[]]$Xaml,
-
-        [Alias('FullName')]
-        [Parameter(Mandatory, ValueFromPipeline, ValueFromPipelineByPropertyName, Position = 0, ParameterSetName = 'Path')]
-        [Parameter(Mandatory, ValueFromPipeline, ValueFromPipelineByPropertyName, Position = 0, ParameterSetName = 'PathDynamic')]
-        [ValidateScript({ Test-Path $_ })]
-        [string[]]$Path,
-
-        [Parameter(Mandatory, ParameterSetName = 'HereStringDynamic')]
-        [Parameter(Mandatory, ParameterSetName = 'PathDynamic')]
-        [string]$BaseUri
-    )
-
-    begin {
-        Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase -ErrorAction Stop
-        if (!(Test-Path $BaseUri)) { [System.IO.DirectoryNotFoundException]::new("$($BaseUri) is invalid") }
-        if (!$BaseUri.EndsWith('\')) { $BaseUri = "$BaseUri\" }
-    }
-
-    process {
-        Write-Debug $PSCmdlet.ParameterSetName
-        $RawXaml = if ($PSBoundParameters.ContainsKey('Path')) { Get-Content -Path $Path } else { $Xaml }
-
-        if ($PSCmdlet.ParameterSetName -in @('PathDynamic', 'HereStringDynamic')) {
-            $ParserContext = [System.Windows.Markup.ParserContext]::new()
-            $ParserContext.BaseUri = [System.Uri]::new($BaseUri, [System.UriKind]::Absolute)
-
-            [System.Windows.Markup.XamlReader]::Parse($RawXaml, $ParserContext)
-        } else {
-            [System.Windows.Markup.XamlReader]::Parse($RawXaml)
-        }
-    }
-}
-
-function ConvertTo-Delegate {
-    [CmdletBinding()]
-    param (
-        [Parameter(Mandatory, ValueFromPipeline, Position = 0)]
-        [System.Management.Automation.PSMethod[]]$PSMethod,
-
-        [Parameter(Mandatory)]
-        [object]$Target,
-
-        [switch]
-        $IsPSObject
-    )
-
-    process {
-        if ($IsPSObject) {
-            $ReflectionMethod = $Target.psobject.GetType().GetMethod($PSMethod.Name)
-        } else {
-            $ReflectionMethod = $Target.GetType().GetMethod($PSMethod.Name)
-        }
-
-        $ParameterTypes = [System.Linq.Enumerable]::Select($ReflectionMethod.GetParameters(), [func[object, object]] { $args[0].parametertype })
-        $ConcatMethodTypes = $ParameterTypes + $ReflectionMethod.ReturnType
-
-        $IsAction = $ReflectionMethod.ReturnType -eq [void]
-        if ($IsAction) {
-            $DelegateType = [System.Linq.Expressions.Expression]::GetActionType($ParameterTypes)
-        } else {
-            $DelegateType = [System.Linq.Expressions.Expression]::GetFuncType($ConcatMethodTypes)
-        }
-
-        [delegate]::CreateDelegate($DelegateType, $Target, $ReflectionMethod.Name)
-    }
-}
-
 # [NoRunspaceAffinity()]
 class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChanged {
     # INotifyPropertyChanged Implementation
@@ -110,6 +24,40 @@ class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChang
 
     ViewModelBase() {
         $this.psobject.UpdateViewDelegate = $this.psobject.CreateDelegate($this.psobject.UpdateView)
+        $this.psobject.AddPropertyChangedToProperties()
+    }
+
+    ViewModelBase([bool]$AddDefault) {
+        $this.psobject.UpdateViewDelegate = $this.psobject.CreateDelegate($this.psobject.UpdateView)
+        if ($AddDefault) { $this.psobject.AddPropertyChangedToProperties() }
+    }
+
+    [void]AddPropertyChangedToProperties() {
+        $this.psobject.AddPropertyChangedToProperties($null)
+    }
+
+    [void]AddPropertyChangedToProperties([string[]]$Exclude) {
+        $PropertiesToExclude = 'PropertyChanged', 'UpdateViewDelegate', 'Dispatcher', 'RunspacePool' + $Exclude
+        $this.psobject.psobject.Members.Where({
+                $_.MemberType -eq 'Property' -and
+                $_.IsSettable -eq $true -and
+                $_.IsGettable -eq $true -and
+                $_.Name -notin $PropertiesToExclude
+            }
+        ).ForEach(
+            {
+                $Splat = @{
+                    Name = $_.Name
+                    MemberType = 'ScriptProperty'
+                    Value = [scriptblock]::Create('return ,$this.psobject.{0}' -f $_.Name)
+                    SecondValue = [scriptblock]::Create('param($value)
+                        $this.psobject.{0} = $value
+                        $this.psobject.RaisePropertyChanged("{0}")' -f $_.Name
+                    )
+                }
+                $this | Add-Member @Splat
+            }
+        )
     }
 
     [Delegate]CreateDelegate([System.Management.Automation.PSMethod]$Method) {
@@ -156,7 +104,7 @@ class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChang
             }
         }
 
-        $NoContext = [scriptblock]::create($Delegate.ToString())
+        $NoContext = $Delegate.Ast.GetScriptBlock()
 
         $null = $Powershell.AddScript($NoContext)
         $null = $Powershell.AddParameter('NoContextMethod', $MethodToRunAsync)
@@ -166,6 +114,7 @@ class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChang
 
         $TaskFactory = [System.Threading.Tasks.TaskFactory]::new([System.Threading.Tasks.TaskScheduler]::Default)
         $Task = $TaskFactory.FromAsync($Handle, $EndInvokeDelegate) # Automagically call EndInvoke asynchronously when completed! AND returns a task! # No need to start a runspace dedicated to clean up!
+        # Works in Windows Powershell
         $DisposeTaskDelegate = $this.psobject.CreateDelegate($this.psobject.DisposeTask)
         $null = $Task.ContinueWith($DisposeTaskDelegate, $Powershell)
     }
@@ -197,33 +146,43 @@ class ActionCommand : ViewModelBase, System.Windows.Input.ICommand {
     }
 
     [void]Execute([object]$CommandParameter) {
-        if ($this.psobject.Action) {
-            if ($this.psobject.IsAsync) {
-                $this.psobject.StartAsync($this.psobject.Action, $this.psobject.Target, $null)
-            } else {
-                $this.psobject.Action.Invoke()
-            }
-        } elseif ($this.psobject.ActionObject) {
-            if ($this.psobject.IsAsync) {
-                $this.psobject.StartAsync($this.psobject.ActionObject, $this.psobject.Target, $CommandParameter)
-            } else {
-                $this.psobject.ActionObject.Invoke($CommandParameter)
-            }
+        if ($this.psobject.Throttle -gt 0) { $this.Workers++ }
+
+        $Delegate = if ($this.psobject.Action) { $this.psobject.Action } else { $this.psobject.ActionObject }
+
+        if ($this.psobject.IsAsync) {
+            $this.psobject.StartAsync($Delegate, $this.psobject.Target, $null)
+        } else {
+            $Delegate.Invoke()
         }
     }
     # End ICommand Implementation
 
-    ActionCommand([System.Management.Automation.PSMethod]$Action) {
-        $this.psobject.Action = $Action
-        $this.psobject.IsAsync = $false
-        $this.psobject.Target = $this
+    ActionCommand([System.Management.Automation.PSMethod]$Action) : Base($false) {
+        $this.psobject.Init($Action, $false, $null, 0)
     }
 
-    ActionCommand([System.Management.Automation.PSMethod]$Action, [bool]$IsAsync, [ViewModelBase]$Target) {
+    ActionCommand([System.Management.Automation.PSMethod]$Action, [bool]$IsAsync, [ViewModelBase]$Target, [int]$Throttle) : Base($false) {
+        $this.psobject.Init($Action, $IsAsync, $Target, $Throttle)
+    }
+
+    hidden Init([System.Management.Automation.PSMethod]$Action, [bool]$IsAsync, [ViewModelBase]$Target, [int]$Throttle) {
         $this.psobject.Action = $Action
         $this.psobject.IsAsync = $IsAsync
         if ($IsAsync) { $this.psobject.RunspacePool = $Target.psobject.RunspacePool }
         $this.psobject.Target = $Target
+        $this.psobject.Throttle = $Throttle
+
+        $this | Add-Member -Name Workers -MemberType ScriptProperty -Value {
+            return $this.psobject.Workers
+        } -SecondValue {
+            param($value)
+            $this.psobject.Workers = $value
+            $this.psobject.RaisePropertyChanged('Workers')
+            $this.psobject.RaiseCanExecuteChanged()
+            # Write-Verbose "Workers is set to $value" -Verbose
+        }
+        $this.psobject.RemoveWorkerDelegate = $this.psobject.CreateDelegate($this.psobject.RemoveWorker)
     }
 
     [void]RaiseCanExecuteChanged() {
@@ -233,6 +192,14 @@ class ActionCommand : ViewModelBase, System.Windows.Input.ICommand {
         }
     }
 
+    [void]RemoveWorker() {
+        $this.Workers--
+    }
+
+    [void]RemoveWorkerFromThread() {
+        $this.psobject.Dispatcher.BeginInvoke(9, $this.psobject.RemoveWorkerDelegate)
+    }
+
     [ViewModelBase]$Target
     [bool]$IsAsync = $false
     $Action
@@ -240,6 +207,7 @@ class ActionCommand : ViewModelBase, System.Windows.Input.ICommand {
     $CanExecuteAction
     $Workers = 0
     $Throttle = 0
+    $RemoveWorkerDelegate
 }
 
 
@@ -251,23 +219,18 @@ class MyViewModel : ViewModelBase {
     # Buttons
     $LongTaskCommand
     $AnotherTaskCommand
+    $ProgressBarCommand
+    $ProgressPauseCommand
 
     # View
     $SharedResource = 10
     $DataGridJobsLock = [object]::new()
     $DataGridJobs = [System.Collections.ObjectModel.ObservableCollection[Object]]::new()
+    $Status = 'Pause'
+    [int]$StatusPercent = 0 # must be type int else it defaults to string
+    $StatusPause = $false
 
-    MyViewModel() {
-        # All changing [string] view properties must be added this way.
-        $this | Add-Member -Name SharedResource -MemberType ScriptProperty -Value {
-            return $this.psobject.SharedResource
-        } -SecondValue {
-            param($value)
-            $this.psobject.SharedResource = $value
-            $this.psobject.RaisePropertyChanged('SharedResource')
-            Write-Verbose "SharedResource is set to $value" -Verbose
-        }
-    }
+    MyViewModel() {}
 
     [pscustomobject]LongTask() {
         $Random = Get-Random -Min 100 -Max 5000
@@ -291,6 +254,32 @@ class MyViewModel : ViewModelBase {
 
         $DataRow = [PSCustomObject]@{Id = [runspace]::DefaultRunspace.Id; Type = 'End'; Time = Get-Date; Snapshot = $this.psobject.SharedResource; Method = 'AnotherTask' }
         $this.psobject.DataGridJobs.Add($DataRow)
+    }
+
+    [void]ProgressBarReport() {
+        try {
+            $Start = 1
+            $End = 200000
+            $Start..$End | ForEach-Object {
+                $Progress = ($_ / $End * 100)
+                if ($Progress % 1 -eq 0) { $this.psobject.UpdateViewFromThread([pscustomobject]@{StatusPercent = $Progress }) }
+
+                while ($this.psobject.StatusPause) {
+                    Start-Sleep -Milliseconds 50
+                }
+
+                Start-Sleep -Milliseconds (Get-Random -Minimum 0 -Maximum 1)
+            }
+        } catch {
+            $_
+        } finally {
+            $this.psobject.ProgressBarCommand.psobject.RemoveWorkerFromThread()
+        }
+    }
+
+    [void]ProgressBarPause() {
+        $this.StatusPause = !$this.StatusPause
+        $this.Status = if ($this.Status -eq 'Pause') { 'Resume' } else { 'Pause' }
     }
 }
 
@@ -362,6 +351,29 @@ class MyViewModel : ViewModelBase {
                     </DataGrid>
                 </Grid>
             </TabItem>
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xEB52;" VerticalAlignment="Center" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"/>
+                        <TextBlock Text="ProgressBar" Margin="5" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="30" />
+                        <RowDefinition Height="30" />
+                        <RowDefinition Height="50" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="1" Text="{Binding Status}" Margin="5" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"/>
+                    <ProgressBar Grid.Row="2" Value="{Binding StatusPercent}" Minimum="0" Maximum="100" Height="20"/>
+                    <StackPanel Grid.Row="3" Orientation="Horizontal">
+                        <Button Name="ProgressButtonStart" Content="Start" Command="{Binding ProgressBarCommand}" Style="{DynamicResource AccentButtonStyle}" Margin="5" Width="80" HorizontalAlignment="Left"/>
+                        <Button Name="ProgressButtonPause" Content="{Binding Status}" Command="{Binding ProgressPauseCommand}" Margin="5" Width="80" HorizontalAlignment="Left"/>
+                    </StackPanel>
+                </Grid>
+            </TabItem>
         </TabControl>
     </Grid>
 </Window>
@@ -383,8 +395,10 @@ $SharedDict.MainViewModel.psobject.RunspacePool = $RunspacePool
 
 # Create buttons
 # $Action = ConvertTo-Delegate -PSMethod $SharedDict.MainViewModel.psobject.SampleMethod -Target $SharedDict.MainViewModel -IsPSObject
-$SharedDict.MainViewModel.psobject.LongTaskCommand = [ActionCommand]::new($SharedDict.MainViewModel.psobject.LongTask, $true, $SharedDict.MainViewModel)
-$SharedDict.MainViewModel.psobject.AnotherTaskCommand = [ActionCommand]::new($SharedDict.MainViewModel.psobject.AnotherTask, $true, $SharedDict.MainViewModel)
+$SharedDict.MainViewModel.psobject.LongTaskCommand = [ActionCommand]::new($SharedDict.MainViewModel.psobject.LongTask, $true, $SharedDict.MainViewModel, 0)
+$SharedDict.MainViewModel.psobject.AnotherTaskCommand = [ActionCommand]::new($SharedDict.MainViewModel.psobject.AnotherTask, $true, $SharedDict.MainViewModel, 0)
+$SharedDict.MainViewModel.psobject.ProgressBarCommand = [ActionCommand]::new($SharedDict.MainViewModel.psobject.ProgressBarReport, $true, $SharedDict.MainViewModel, 1)
+$SharedDict.MainViewModel.psobject.ProgressPauseCommand = [ActionCommand]::new($SharedDict.MainViewModel.psobject.ProgressBarPause)
 
 # Powershell 5.1 only
 $SharedDict.MainViewModel.psobject.Dispatcher = [System.Windows.Threading.Dispatcher]::CurrentDispatcher
