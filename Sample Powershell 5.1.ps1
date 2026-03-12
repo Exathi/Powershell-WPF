@@ -399,7 +399,6 @@ $RunspacePool.Open()
 $SharedDict.MainViewModel.psobject.RunspacePool = $RunspacePool
 
 # Create buttons
-# $Action = ConvertTo-Delegate -PSMethod $SharedDict.MainViewModel.psobject.SampleMethod -Target $SharedDict.MainViewModel -IsPSObject
 $SharedDict.MainViewModel.psobject.LongTaskCommand = [ActionCommand]::new($SharedDict.MainViewModel.psobject.LongTask, $true, $SharedDict.MainViewModel, 0)
 $SharedDict.MainViewModel.psobject.AnotherTaskCommand = [ActionCommand]::new($SharedDict.MainViewModel.psobject.AnotherTask, $true, $SharedDict.MainViewModel, 0)
 $SharedDict.MainViewModel.psobject.ProgressBarCommand = [ActionCommand]::new($SharedDict.MainViewModel.psobject.ProgressBarReport, $true, $SharedDict.MainViewModel, 1)
@@ -408,7 +407,7 @@ $SharedDict.MainViewModel.psobject.ProgressPauseCommand = [ActionCommand]::new($
 # Powershell 5.1 only
 $SharedDict.MainViewModel.psobject.Dispatcher = [System.Windows.Threading.Dispatcher]::CurrentDispatcher
 
-# Set DataContext and enable collection thread safety
+# Set DataContext and enable collection thread safety for updating collection across runspaces.
 $SharedDict.Window.DataContext = $SharedDict.MainViewModel
 [System.Windows.Data.BindingOperations]::EnableCollectionSynchronization($SharedDict.MainViewModel.psobject.DataGridJobs, $SharedDict.MainViewModel.psobject.DataGridJobsLock)
 

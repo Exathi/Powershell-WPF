@@ -407,7 +407,7 @@ $SharedDict.MainViewModel.psobject.AnotherTaskCommand = [ActionCommand]::new($Sh
 $SharedDict.MainViewModel.psobject.ProgressBarCommand = [ActionCommand]::new($SharedDict.MainViewModel.psobject.ProgressBarReport, $true, $SharedDict.MainViewModel, 1)
 $SharedDict.MainViewModel.psobject.ProgressPauseCommand = [ActionCommand]::new($SharedDict.MainViewModel.psobject.ProgressBarPause)
 
-# Set DataContext and enable collection thread safety
+# Set DataContext and enable collection thread safety for updating collection across runspaces.
 $SharedDict.Window.DataContext = $SharedDict.MainViewModel
 [System.Windows.Data.BindingOperations]::EnableCollectionSynchronization($SharedDict.MainViewModel.psobject.DataGridJobs, $SharedDict.MainViewModel.psobject.DataGridJobsLock)
 
