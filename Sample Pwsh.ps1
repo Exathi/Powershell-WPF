@@ -61,11 +61,19 @@ class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChang
     }
 
     [Delegate]CreateDelegate([System.Management.Automation.PSMethod]$Method) {
-        $reflectionMethod = $this.psobject.GetType().GetMethod($Method.Name)
+        return $this.psobject.CreateDelegate($Method, $this)
+    }
+
+    [Delegate]CreateDelegate([System.Management.Automation.PSMethod]$Method, $Target) {
+        $reflectionMethod = if ($Target.GetType().Name -eq 'PSCustomObject') {
+            $Target.psobject.GetType().GetMethod($Method.Name)
+        } else {
+            $Target.GetType().GetMethod($Method.Name)
+        }
         $parameterTypes = [System.Linq.Enumerable]::Select($reflectionMethod.GetParameters(), [func[object, object]] { $args[0].parametertype })
         $concatMethodTypes = $parameterTypes + $reflectionMethod.ReturnType
         $delegateType = [System.Linq.Expressions.Expression]::GetDelegateType($concatMethodTypes)
-        $delegate = [delegate]::CreateDelegate($delegateType, $this, $reflectionMethod.Name)
+        $delegate = [delegate]::CreateDelegate($delegateType, $Target, $reflectionMethod.Name)
         return $delegate
     }
 
@@ -80,21 +88,16 @@ class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChang
         }
     }
 
-    [void]StartAsync($MethodToRunAsync, [ViewModelBase]$Target, $CommandParameter) {
+    [System.Threading.Tasks.Task]StartAsync($MethodToRunAsync, [ViewModelBase]$Target, $CommandParameter) {
         $Powershell = [powershell]::Create()
         $Powershell.RunspacePool = $this.psobject.RunspacePool # Will use a default runspace if RunspacePool is $null
-
-        $reflectionMethod = $Powershell.GetType().GetMethod('EndInvoke')
-        $parameterTypes = [System.Linq.Enumerable]::Select($reflectionMethod.GetParameters(), [func[object, object]] { $args[0].parametertype })
-        $concatMethodTypes = $parameterTypes + $reflectionMethod.ReturnType
-        $delegateType = [System.Linq.Expressions.Expression]::GetDelegateType($concatMethodTypes)
-        $EndInvokeDelegate = [delegate]::CreateDelegate($delegateType, $Powershell, $reflectionMethod.Name)
 
         $Delegate = if ($null -eq $CommandParameter) {
             {
                 param($NoContextMethod, $ViewModelBase)
                 $UpdateValue = $NoContextMethod.Invoke()
                 $ViewModelBase.psobject.UpdateViewFromThread($UpdateValue)
+                # Optionally send output to $Powershell pipeline to be used at $Task.Result
             }
         } else {
             {
@@ -112,9 +115,11 @@ class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChang
         if ($null -ne $CommandParameter) { $null = $Powershell.AddParameter('CommandParameter', $CommandParameter) }
         $Handle = $Powershell.BeginInvoke()
 
-        $TaskFactory = [System.Threading.Tasks.TaskFactory]::new([System.Threading.Tasks.TaskScheduler]::Default)
-        $null = $TaskFactory.FromAsync($Handle, $EndInvokeDelegate) # Automagically call EndInvoke asynchronously when completed! AND returns a task! # No need to start a runspace dedicated to clean up!
-        # Broken as of pwsh 7+.
+        # $EndInvokeDelegate = $this.psobject.CreateDelegate($Powershell.EndInvoke, $Powershell) # Alternatively use this unless you want to type out the specific delegate
+        $Task = [System.Threading.Tasks.Task]::Factory.FromAsync($Handle, [func[System.IAsyncResult, [System.Management.Automation.PSDataCollection[psobject]]]]$Powershell.EndInvoke) # Automagically call EndInvoke asynchronously when completed! AND returns a task! # No need to start a runspace dedicated to clean up!
+        return $Task
+        # Broken as of pwsh 7+ because of [NoRunspaceAffinity()].
+        # Most likely not thread safe. Better to have methods call in sequence if needed in the method passed to StartAsync
         # $DisposeTaskDelegate = $this.psobject.CreateDelegate($this.psobject.DisposeTask)
         # $null = $Task.ContinueWith($DisposeTaskDelegate, $Powershell)
     }
@@ -151,7 +156,7 @@ class ActionCommand : ViewModelBase, System.Windows.Input.ICommand {
         $Delegate = if ($this.psobject.Action) { $this.psobject.Action } else { $this.psobject.ActionObject }
 
         if ($this.psobject.IsAsync) {
-            $this.psobject.StartAsync($Delegate, $this.psobject.Target, $null)
+            $null = $this.psobject.StartAsync($Delegate, $this.psobject.Target, $null)
         } else {
             $Delegate.Invoke()
         }
