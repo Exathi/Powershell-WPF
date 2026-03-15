@@ -284,7 +284,7 @@ class MyViewModel : ViewModelBase {
 
     [void]ProgressBarPause() {
         $this.StatusPause = !$this.StatusPause
-        $this.Status = if ($this.Status -eq 'Pause') { 'Resume' } else { 'Pause' }
+        $this.Status = if ($this.StatusPause) { 'Resume' } else { 'Pause' }
     }
 }
 
