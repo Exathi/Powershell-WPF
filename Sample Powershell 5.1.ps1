@@ -115,7 +115,7 @@ class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChang
                 param($NoContextMethod, $ViewModelBase, $CommandParameter)
                 $UpdateValue = $NoContextMethod.Invoke($CommandParameter)
                 $ViewModelBase.psobject.DispatcherOperationInvokedAction = $ViewModelBase.psobject.Dispatcher.InvokeAsync([action] { $ViewModelBase.psobject.UpdateView($UpdateValue) })
-                $ActionCommand.psobject.DispatcherOperationWorkerAction = $ActionCommand.psobject.Dispatcher.InvokeAsync($ActionCommand.psobject.RemoveWorker)
+                $ActionCommand.psobject.DispatcherOperationWorkerAction = $ActionCommand.psobject.Dispatcher.InvokeAsync($ActionCommand.psobject.RemoveWorkerDelegate)
             }
         }
 
