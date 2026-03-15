@@ -317,7 +317,7 @@ class MyViewModel : ViewModelBase {
             <TabItem>
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xF164;" VerticalAlignment="Center" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"/>
+                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xF164;" VerticalAlignment="Center" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"/>
                         <TextBlock Text="Sample" Margin="5" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"/>
                     </StackPanel>
                 </TabItem.Header>
@@ -337,7 +337,7 @@ class MyViewModel : ViewModelBase {
 			<TabItem>
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xF16C;" VerticalAlignment="Center" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"/>
+                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xF16C;" VerticalAlignment="Center" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"/>
                         <TextBlock Text="AnotherTask" Margin="5" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"/>
                     </StackPanel>
                 </TabItem.Header>
@@ -376,7 +376,7 @@ class MyViewModel : ViewModelBase {
             <TabItem>
                 <TabItem.Header>
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xEB52;" VerticalAlignment="Center" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"/>
+                        <TextBlock FontFamily="Segoe Fluent Icons" Text="&#xEB52;" VerticalAlignment="Center" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"/>
                         <TextBlock Text="ProgressBar" Margin="5" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"/>
                     </StackPanel>
                 </TabItem.Header>
