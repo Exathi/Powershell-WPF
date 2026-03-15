@@ -240,6 +240,7 @@ class ActionCommand : ViewModelBase, System.Windows.Input.ICommand {
 class MyViewModel : ViewModelBase {
     # Buttons
     $LongTaskCommand
+    $RunCmdletCommand
     $AnotherTaskCommand
     $ProgressBarCommand
     $ProgressPauseCommand
@@ -299,6 +300,19 @@ class MyViewModel : ViewModelBase {
         $this.StatusPause = !$this.StatusPause
         $this.Status = if ($this.StatusPause) { 'Resume' } else { 'Pause' }
     }
+
+    [void]RunCmdlet() {
+        $this.SharedResource = Invoke-SampleCmdlet
+    }
+}
+
+function Invoke-SampleCmdlet {
+    [CmdletBinding()]
+    param (
+        [int]$Max = [int]::MaxValue
+    )
+    Start-Sleep -Seconds 2
+    Get-Random -Maximum $Max
 }
 
 [xml]$xaml = @'
@@ -328,7 +342,10 @@ class MyViewModel : ViewModelBase {
                         </Grid.RowDefinitions>
 
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding SharedResource, UpdateSourceTrigger=PropertyChanged}" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        <Button Grid.Row="1" Grid.Column="0" Name="Increment" Content="+" Command="{Binding LongTaskCommand}" Style="{DynamicResource AccentButtonStyle}" Margin="5" Width="50" HorizontalAlignment="Center"/>
+                        <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Center">
+                            <Button Name="LongTask" Content="LongTask" Command="{Binding LongTaskCommand}" Style="{DynamicResource AccentButtonStyle}" Margin="5" Width="100" HorizontalAlignment="Center"/>
+                            <Button Name="RunCmdlet" Content="RunCmdlet" Command="{Binding RunCmdletCommand}" Style="{DynamicResource AccentButtonStyle}" Margin="5" Width="100" HorizontalAlignment="Center"/>
+                        </StackPanel>
                     </Grid>
             </TabItem>
 			<TabItem>
@@ -406,14 +423,17 @@ $SharedDict.MainViewModel = [MyViewModel]::new()
 
 # Create runspacepool for async buttons
 $State = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault()
-# $RunspaceVariable = New-Object System.Management.Automation.Runspaces.SessionStateVariableEntry -ArgumentList 'SharedDict', $SharedDict, $null
+# $RunspaceVariable = [System.Management.Automation.Runspaces.SessionStateVariableEntry]::new('SharedDict', $SharedDict, $null)
 # $State.Variables.Add($RunspaceVariable)
+$InvokeSampleCmdletDefinition = Get-Content Function:\Invoke-SampleCmdlet -ErrorAction Stop
+$State.Commands.Add([System.Management.Automation.Runspaces.SessionStateFunctionEntry]::new('Invoke-SampleCmdlet', $InvokeSampleCmdletDefinition))
 $RunspacePool = [RunspaceFactory]::CreateRunspacePool(1, $([int]$env:NUMBER_OF_PROCESSORS + 1), $State, (Get-Host))
 $RunspacePool.Open()
 $SharedDict.MainViewModel.psobject.RunspacePool = $RunspacePool
 
 # Create buttons
 $SharedDict.MainViewModel.psobject.LongTaskCommand = [ActionCommand]::new($SharedDict.MainViewModel.psobject.LongTask, $true, $SharedDict.MainViewModel, 0)
+$SharedDict.MainViewModel.psobject.RunCmdletCommand = [ActionCommand]::new($SharedDict.MainViewModel.psobject.RunCmdlet, $true, $SharedDict.MainViewModel, 0)
 $SharedDict.MainViewModel.psobject.AnotherTaskCommand = [ActionCommand]::new($SharedDict.MainViewModel.psobject.AnotherTask, $true, $SharedDict.MainViewModel, 0)
 $SharedDict.MainViewModel.psobject.ProgressBarCommand = [ActionCommand]::new($SharedDict.MainViewModel.psobject.ProgressBarReport, $true, $SharedDict.MainViewModel, 1)
 $SharedDict.MainViewModel.psobject.ProgressPauseCommand = [ActionCommand]::new($SharedDict.MainViewModel.psobject.ProgressBarPause)
