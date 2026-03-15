@@ -23,12 +23,10 @@ class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChang
     # End INotifyPropertyChanged Implementation
 
     ViewModelBase() {
-        $this.psobject.UpdateViewDelegate = $this.psobject.CreateDelegate($this.psobject.UpdateView)
         $this.psobject.AddPropertyChangedToProperties()
     }
 
     ViewModelBase([bool]$AddDefault) {
-        $this.psobject.UpdateViewDelegate = $this.psobject.CreateDelegate($this.psobject.UpdateView)
         if ($AddDefault) { $this.psobject.AddPropertyChangedToProperties() }
     }
 
@@ -37,7 +35,7 @@ class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChang
     }
 
     [void]AddPropertyChangedToProperties([string[]]$Exclude) {
-        $PropertiesToExclude = 'PropertyChanged', 'UpdateViewDelegate', 'Dispatcher', 'RunspacePool' + $Exclude
+        $PropertiesToExclude = 'PropertyChanged', 'UpdateViewDelegate', 'Dispatcher', 'RunspacePool', 'LastAction', 'DispatcherOperationInvokedAction', 'DispatcherOperationWorkerAction' + $Exclude
         $this.psobject.psobject.Members.Where({
                 $_.MemberType -eq 'Property' -and
                 $_.IsSettable -eq $true -and
@@ -77,33 +75,47 @@ class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChang
         return $delegate
     }
 
-    [void]UpdateViewFromThread($UpdateValue) {
-        if ($null -eq $UpdateValue) { return }
-        $this.psobject.Dispatcher.BeginInvoke(9, $this.psobject.UpdateViewDelegate, $UpdateValue)
-    }
-
     [void]UpdateView($UpdateValue) {
+        if ($null -eq $UpdateValue) { return }
         $UpdateValue.psobject.Properties | ForEach-Object {
             $this.$($_.Name) = $_.Value
         }
     }
 
     [System.Threading.Tasks.Task]StartAsync($MethodToRunAsync, [ViewModelBase]$Target, $CommandParameter) {
+        return $this.psobject.StartAsync($MethodToRunAsync, [ViewModelBase]$Target, $CommandParameter, $null)
+    }
+
+    [System.Threading.Tasks.Task]StartAsync($MethodToRunAsync, [ViewModelBase]$Target, $CommandParameter, $ActionCommand) {
         $Powershell = [powershell]::Create()
         $Powershell.RunspacePool = $this.psobject.RunspacePool # Will use a default runspace if RunspacePool is $null
 
-        $Delegate = if ($null -eq $CommandParameter) {
+        $Delegate = if ($null -eq $CommandParameter -and $null -ne $ActionCommand) {
+            {
+                param($NoContextMethod, $ViewModelBase, $ActionCommand)
+                $UpdateValue = $NoContextMethod.Invoke()
+                $ViewModelBase.psobject.DispatcherOperationInvokedAction = $ViewModelBase.psobject.Dispatcher.InvokeAsync([action] { $ViewModelBase.psobject.UpdateView($UpdateValue) })
+                $ActionCommand.psobject.DispatcherOperationWorkerAction = $ActionCommand.psobject.Dispatcher.InvokeAsync($ActionCommand.psobject.RemoveWorker)
+                # Pipeline output can be received in $LastAction.Result
+            }
+        } elseif ($null -eq $CommandParameter -and $null -eq $ActionCommand) {
             {
                 param($NoContextMethod, $ViewModelBase)
                 $UpdateValue = $NoContextMethod.Invoke()
-                $ViewModelBase.psobject.UpdateViewFromThread($UpdateValue)
-                # Optionally send output to $Powershell pipeline to be used at $Task.Result
+                $ViewModelBase.psobject.DispatcherOperationInvokedAction = $ViewModelBase.psobject.Dispatcher.InvokeAsync([action] { $ViewModelBase.psobject.UpdateView($UpdateValue) })
+            }
+        } elseif ($null -ne $CommandParameter -and $null -eq $ActionCommand) {
+            {
+                param($NoContextMethod, $ViewModelBase)
+                $UpdateValue = $NoContextMethod.Invoke($CommandParameter)
+                $ViewModelBase.psobject.DispatcherOperationInvokedAction = $ViewModelBase.psobject.Dispatcher.InvokeAsync([action] { $ViewModelBase.psobject.UpdateView($UpdateValue) })
             }
         } else {
             {
                 param($NoContextMethod, $ViewModelBase, $CommandParameter)
                 $UpdateValue = $NoContextMethod.Invoke($CommandParameter)
-                $ViewModelBase.psobject.UpdateViewFromThread($UpdateValue)
+                $ViewModelBase.psobject.DispatcherOperationInvokedAction = $ViewModelBase.psobject.Dispatcher.InvokeAsync([action] { $ViewModelBase.psobject.UpdateView($UpdateValue) })
+                $ActionCommand.psobject.DispatcherOperationWorkerAction = $ActionCommand.psobject.Dispatcher.InvokeAsync($ActionCommand.psobject.RemoveWorker)
             }
         }
 
@@ -113,24 +125,21 @@ class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChang
         $null = $Powershell.AddParameter('NoContextMethod', $MethodToRunAsync)
         $null = $Powershell.AddParameter('ViewModelBase', $Target)
         if ($null -ne $CommandParameter) { $null = $Powershell.AddParameter('CommandParameter', $CommandParameter) }
+        if ($null -ne $ActionCommand) { $null = $Powershell.AddParameter('ActionCommand', $ActionCommand) }
         $Handle = $Powershell.BeginInvoke()
 
         # $EndInvokeDelegate = $this.psobject.CreateDelegate($Powershell.EndInvoke, $Powershell) # Alternatively use this unless you want to type out the specific delegate
         $Task = [System.Threading.Tasks.Task]::Factory.FromAsync($Handle, [func[System.IAsyncResult, [System.Management.Automation.PSDataCollection[psobject]]]]$Powershell.EndInvoke) # Automagically call EndInvoke asynchronously when completed! AND returns a task! # No need to start a runspace dedicated to clean up!
+        $this.psobject.LastAction = $Task
+
         return $Task
-        # Broken as of pwsh 7+ because of [NoRunspaceAffinity()].
-        # Most likely not thread safe. Better to have methods call in sequence if needed in the method passed to StartAsync
-        # $DisposeTaskDelegate = $this.psobject.CreateDelegate($this.psobject.DisposeTask)
-        # $null = $Task.ContinueWith($DisposeTaskDelegate, $Powershell)
     }
 
-    # DisposeTask([System.Threading.Tasks.Task]$Task, [object]$Powershell) {
-    #     $Powershell.Dispose()
-    # }
-
-    $UpdateViewDelegate
     $Dispatcher = [System.Windows.Threading.Dispatcher]::CurrentDispatcher
     $RunspacePool
+    $LastAction
+    $DispatcherOperationInvokedAction
+    $DispatcherOperationWorkerAction
 }
 
 class ActionCommand : ViewModelBase, System.Windows.Input.ICommand {
@@ -156,7 +165,11 @@ class ActionCommand : ViewModelBase, System.Windows.Input.ICommand {
         $Delegate = if ($this.psobject.Action) { $this.psobject.Action } else { $this.psobject.ActionObject }
 
         if ($this.psobject.IsAsync) {
-            $null = $this.psobject.StartAsync($Delegate, $this.psobject.Target, $null)
+            if ($this.psobject.Throttle -gt 0) {
+                $null = $this.psobject.StartAsync($Delegate, $this.psobject.Target, $null, $this)
+            } else {
+                $null = $this.psobject.StartAsync($Delegate, $this.psobject.Target, $null)
+            }
         } else {
             $Delegate.Invoke()
         }
@@ -178,16 +191,25 @@ class ActionCommand : ViewModelBase, System.Windows.Input.ICommand {
         $this.psobject.Target = $Target
         $this.psobject.Throttle = $Throttle
 
-        $this | Add-Member -Name Workers -MemberType ScriptProperty -Value {
-            return $this.psobject.Workers
-        } -SecondValue {
-            param($value)
-            $this.psobject.Workers = $value
-            $this.psobject.RaisePropertyChanged('Workers')
-            $this.psobject.RaiseCanExecuteChanged()
-            # Write-Verbose "Workers is set to $value" -Verbose
-        }
-        $this.psobject.RemoveWorkerDelegate = $this.psobject.CreateDelegate($this.psobject.RemoveWorker)
+        @('Workers').ForEach(
+            {
+                $Splat = @{
+                    Name = $_
+                    MemberType = 'ScriptProperty'
+                    Value = [scriptblock]::Create('return ,$this.psobject.{0}' -f $_)
+                    SecondValue = [scriptblock]::Create('param($value)
+                        $this.psobject.{0} = $value
+                        $this.psobject.RaisePropertyChanged("{0}")
+                        if ($this.psobject.Dispatcher.CheckAccess()) {{
+                            $this.psobject.RaiseCanExecuteChanged()
+                        }} else {{
+                            $this.psobject.Dispatcher.InvokeAsync($this.psobject.RaiseCanExecuteChanged)
+                        }}' -f $_
+                    )
+                }
+                $this | Add-Member @Splat
+            }
+        )
     }
 
     [void]RaiseCanExecuteChanged() {
@@ -201,10 +223,6 @@ class ActionCommand : ViewModelBase, System.Windows.Input.ICommand {
         $this.Workers--
     }
 
-    [void]RemoveWorkerFromThread() {
-        $this.psobject.Dispatcher.BeginInvoke(9, $this.psobject.RemoveWorkerDelegate)
-    }
-
     [ViewModelBase]$Target
     [bool]$IsAsync = $false
     $Action
@@ -212,7 +230,6 @@ class ActionCommand : ViewModelBase, System.Windows.Input.ICommand {
     $CanExecuteAction
     $Workers = 0
     $Throttle = 0
-    $RemoveWorkerDelegate
 }
 
 
@@ -264,23 +281,17 @@ class MyViewModel : ViewModelBase {
     }
 
     [void]ProgressBarReport() {
-        try {
-            $Start = 1
-            $End = 200000
-            $Start..$End | ForEach-Object {
-                $Progress = ($_ / $End * 100)
-                if ($Progress % 1 -eq 0) { $this.psobject.UpdateViewFromThread([pscustomobject]@{StatusPercent = $Progress }) }
+        $Start = 1
+        $End = 1000000
+        $Start..$End | ForEach-Object {
+            $Progress = ($_ / $End * 100)
+            if ($Progress % 1 -eq 0) { $this.StatusPercent = $Progress }
 
-                while ($this.psobject.StatusPause) {
-                    Start-Sleep -Milliseconds 50
-                }
-
-                Start-Sleep -Milliseconds (Get-Random -Minimum 0 -Maximum 1)
+            while ($this.psobject.StatusPause) {
+                Start-Sleep -Milliseconds 50
             }
-        } catch {
-            $_
-        } finally {
-            $this.psobject.ProgressBarCommand.psobject.RemoveWorkerFromThread()
+
+            # Start-Sleep -Milliseconds (Get-Random -Minimum 0 -Maximum 1)
         }
     }
 
