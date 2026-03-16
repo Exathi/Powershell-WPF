@@ -458,7 +458,7 @@ $SharedDict.MainViewModel.psobject.AnotherTaskCommand = [ActionCommand]::new($Sh
 $SharedDict.MainViewModel.psobject.ProgressBarCommand = [ActionCommand]::new($SharedDict.MainViewModel.psobject.ProgressBarReport, $true, $SharedDict.MainViewModel, 1)
 $SharedDict.MainViewModel.psobject.ProgressPauseCommand = [ActionCommand]::new($SharedDict.MainViewModel.psobject.ProgressBarPause)
 
-# Powershell 5.1 only
+# Windows Powershell only. Because New-UnboundClassInstance MyViewModel creates it in another instance, its dispatcher is not the same as the Window's dispatcher.
 $SharedDict.MainViewModel.psobject.Dispatcher = [System.Windows.Threading.Dispatcher]::CurrentDispatcher
 
 # Set DataContext and enable collection thread safety for updating collection across runspaces.
