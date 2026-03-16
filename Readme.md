@@ -35,11 +35,67 @@ Methods will have to be called with `$Class.psobject.ClassMethod()`. I have not 
 
 ### Minimal Setup Example
 ``` Powershell
-# Pwsh
-# Make sure to load ViewModelBase and ActionCommand first
-$Location = Join-Path -Path (Get-Location).Path -ChildPath Modules -AdditionalChildPath PowershellWpf
-$LoadClasses = [ScriptBlock]::Create("using module '$Location' ")
-. $LoadClasses
+# Pwsh7.4 - copy paste into the terminal and check it out.
+# Make sure to load Add-Types, ViewModelBase and ActionCommand first
+Add-Type -AssemblyName PresentationFramework, WindowsBase -ErrorAction Stop
+[NoRunspaceAffinity()]
+class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChanged {
+    # INotifyPropertyChanged Implementation
+    [ComponentModel.PropertyChangedEventHandler]$PropertyChanged
+    add_PropertyChanged([System.ComponentModel.PropertyChangedEventHandler]$handler) {
+        $this.psobject.PropertyChanged = [Delegate]::Combine($this.psobject.PropertyChanged, $handler)
+    }
+    remove_PropertyChanged([System.ComponentModel.PropertyChangedEventHandler]$handler) {
+        $this.psobject.PropertyChanged = [Delegate]::Remove($this.psobject.PropertyChanged, $handler)
+    }
+    RaisePropertyChanged([string]$propname) {
+        if ($this.psobject.PropertyChanged) {
+            $evargs = [System.ComponentModel.PropertyChangedEventArgs]::new($propname)
+            $this.psobject.PropertyChanged.Invoke($this, $evargs)
+        }
+    }
+    # End INotifyPropertyChanged Implementation
+	ViewModelBase() {}
+	[void]StartAsync($ClassMethod) {
+		$Powershell = [powershell]::Create()
+		$ScriptBlock = {
+			param($Delegate)
+			$Delegate.Invoke()
+		}.Ast.GetScriptBlock()
+		$null = $Powershell.AddScript($ScriptBlock)
+		$null = $Powershell.AddParameter('Delegate', $ClassMethod)
+		$Handle = $Powershell.BeginInvoke()
+	}
+}
+
+class ActionCommand : ViewModelBase, System.Windows.Input.ICommand {
+    # ICommand Implementation
+    [System.EventHandler]$InternalCanExecuteChanged
+    add_CanExecuteChanged([EventHandler] $value) {
+        $this.psobject.InternalCanExecuteChanged = [Delegate]::Combine($this.psobject.InternalCanExecuteChanged, $value)
+    }
+    remove_CanExecuteChanged([EventHandler] $value) {
+        $this.psobject.InternalCanExecuteChanged = [Delegate]::Remove($this.psobject.InternalCanExecuteChanged, $value)
+    }
+    [bool]CanExecute([object]$CommandParameter) {
+        return $true
+    }
+    [void]Execute([object]$CommandParameter) {
+        if ($this.psobject.IsAsync) {
+			$null = $this.psobject.StartAsync($this.psobject.Action)
+        } else {
+            $this.psobject.Action.Invoke()
+        }
+    }
+	# End ICommand Implementation
+	ActionCommand([System.Management.Automation.PSMethod]$Action, $IsAsync) {
+        $this.psobject.Action = $Action
+		$this.psobject.IsAsync = $IsAsync
+    }
+    $Action
+	$IsAsync
+}
+
 $xaml = [xml]::new()
 $xaml.LoadXml(@'
 <Window
@@ -56,18 +112,30 @@ class ViewModel : ViewModelBase {
 	$AsyncCustomerNameCommand
 	$CustomerNameCommand
 	$CustomerNameValue = 'Hello World'
-	ViewModel () {}
+	ViewModel() {
+		$Splat = @{
+			Name = 'CustomerNameValue'
+			MemberType = 'ScriptProperty'
+			Value = [scriptblock]::Create('return ,$this.psobject.{0}' -f 'CustomerNameValue')
+			SecondValue = [scriptblock]::Create('param($value)
+				$this.psobject.{0} = $value
+				$this.psobject.RaisePropertyChanged("{0}")' -f 'CustomerNameValue'
+			)
+		}
+		$this | Add-Member @Splat
+	}
 	[void]CustomerName() {
 		Start-Sleep -Seconds 2
 		$this.CustomerNameValue = Get-Random
 	}
 }
 $ViewModel = [ViewModel]::new()
-$ViewModel.psobject.AsyncCustomerNameCommand = [ActionCommand]::new($ViewModel.psobject.CustomerName, $true, $ViewModel, 1)
-$ViewModel.psobject.CustomerNameCommand = [ActionCommand]::new($ViewModel.psobject.CustomerName, $false, $ViewModel, 1)
+$ViewModel.psobject.AsyncCustomerNameCommand = [ActionCommand]::new($ViewModel.psobject.CustomerName, $true)
+$ViewModel.psobject.CustomerNameCommand = [ActionCommand]::new($ViewModel.psobject.CustomerName, $false)
 $Window = [System.Windows.Markup.XamlReader]::Load(([System.Xml.XmlNodeReader]::new($xaml)))
 $Window.DataContext = $ViewModel
 $Window.ShowDialog()
+
 
 ```
 
