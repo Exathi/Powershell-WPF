@@ -95,7 +95,12 @@ class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChang
                 param($NoContextMethod, $ViewModelBase, $ActionCommand)
                 $UpdateValue = $NoContextMethod.Invoke()
                 $ViewModelBase.psobject.DispatcherOperationInvokedAction = $ViewModelBase.psobject.Dispatcher.InvokeAsync([action] { $ViewModelBase.psobject.UpdateView($UpdateValue) })
+                # $ActionCommand.psobject.DispatcherOperationWorkerAction = $ActionCommand.psobject.Dispatcher.InvokeAsync($ActionCommand.psobject.RemoveWorker)
+
+                # Start added for Windows Powershell compatibility
                 $ActionCommand.psobject.DispatcherOperationWorkerAction = $ActionCommand.psobject.Dispatcher.InvokeAsync($ActionCommand.psobject.RemoveWorkerDelegate)
+                # End added for Windows Powershell compatibility
+
                 # Pipeline output can be received in $LastAction.Result
             }
         } elseif ($null -eq $CommandParameter -and $null -eq $ActionCommand) {
@@ -115,7 +120,11 @@ class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChang
                 param($NoContextMethod, $ViewModelBase, $CommandParameter)
                 $UpdateValue = $NoContextMethod.Invoke($CommandParameter)
                 $ViewModelBase.psobject.DispatcherOperationInvokedAction = $ViewModelBase.psobject.Dispatcher.InvokeAsync([action] { $ViewModelBase.psobject.UpdateView($UpdateValue) })
+                # $ActionCommand.psobject.DispatcherOperationWorkerAction = $ActionCommand.psobject.Dispatcher.InvokeAsync($ActionCommand.psobject.RemoveWorker)
+
+                # Start added for Windows Powershell compatibility
                 $ActionCommand.psobject.DispatcherOperationWorkerAction = $ActionCommand.psobject.Dispatcher.InvokeAsync($ActionCommand.psobject.RemoveWorkerDelegate)
+                # End added for Windows Powershell compatibility
             }
         }
 
@@ -172,6 +181,7 @@ class ActionCommand : ViewModelBase, System.Windows.Input.ICommand {
             }
         } else {
             $Delegate.Invoke()
+            if ($this.psobject.Throttle -gt 0) { $this.psobject.RemoveWorker() }
         }
     }
     # End ICommand Implementation
@@ -191,8 +201,11 @@ class ActionCommand : ViewModelBase, System.Windows.Input.ICommand {
         $this.psobject.Target = $Target
         $this.psobject.Throttle = $Throttle
 
+        # Start added for Windows Powershell compatibility
         $this.psobject.RaiseCanExecuteChangedDelegate = $this.psobject.CreateDelegate($this.psobject.RaiseCanExecuteChanged)
         $this.psobject.RemoveWorkerDelegate = $this.psobject.CreateDelegate($this.psobject.RemoveWorker)
+        # End added for Windows Powershell compatibility
+
         @('Workers').ForEach(
             {
                 $Splat = @{
@@ -205,7 +218,10 @@ class ActionCommand : ViewModelBase, System.Windows.Input.ICommand {
                         if ($this.psobject.Dispatcher.CheckAccess()) {{
                             $this.psobject.RaiseCanExecuteChanged()
                         }} else {{
+                            # $this.psobject.Dispatcher.InvokeAsync($this.psobject.RaiseCanExecuteChanged)
+                            # Start added for Windows Powershell compatibility
                             $this.psobject.Dispatcher.InvokeAsync($this.psobject.RaiseCanExecuteChangedDelegate)
+                            # End added for Windows Powershell compatibility
                         }}' -f $_
                     )
                 }
@@ -233,9 +249,10 @@ class ActionCommand : ViewModelBase, System.Windows.Input.ICommand {
     $Workers = 0
     $Throttle = 0
 
-    # Windows Powershell only delegates
+    # Start added for Windows Powershell compatibility
     $RaiseCanExecuteChangedDelegate
     $RemoveWorkerDelegate
+    # End added for Windows Powershell compatibility
 }
 
 
