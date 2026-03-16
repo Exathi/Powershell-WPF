@@ -23,10 +23,12 @@ class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChang
     # End INotifyPropertyChanged Implementation
 
     ViewModelBase() {
+        $this.psobject.UpdateViewDelegate = $this.psobject.CreateDelegate($this.psobject.UpdateView)
         $this.psobject.AddPropertyChangedToProperties()
     }
 
     ViewModelBase([bool]$AddDefault) {
+        $this.psobject.UpdateViewDelegate = $this.psobject.CreateDelegate($this.psobject.UpdateView)
         if ($AddDefault) { $this.psobject.AddPropertyChangedToProperties() }
     }
 
@@ -94,7 +96,7 @@ class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChang
             {
                 param($NoContextMethod, $ViewModelBase, $ActionCommand)
                 $UpdateValue = $NoContextMethod.Invoke()
-                $ViewModelBase.psobject.DispatcherOperationInvokedAction = $ViewModelBase.psobject.Dispatcher.InvokeAsync([action] { $ViewModelBase.psobject.UpdateView($UpdateValue) })
+                $ViewModelBase.psobject.DispatcherOperationInvokedAction = $ViewModelBase.psobject.Dispatcher.BeginInvoke(9, $ViewModelBase.psobject.UpdateViewDelegate, $UpdateValue )
                 # $ActionCommand.psobject.DispatcherOperationWorkerAction = $ActionCommand.psobject.Dispatcher.InvokeAsync($ActionCommand.psobject.RemoveWorker)
 
                 # Start added for Windows Powershell compatibility
@@ -107,19 +109,19 @@ class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChang
             {
                 param($NoContextMethod, $ViewModelBase)
                 $UpdateValue = $NoContextMethod.Invoke()
-                $ViewModelBase.psobject.DispatcherOperationInvokedAction = $ViewModelBase.psobject.Dispatcher.InvokeAsync([action] { $ViewModelBase.psobject.UpdateView($UpdateValue) })
+                $ViewModelBase.psobject.DispatcherOperationInvokedAction = $ViewModelBase.psobject.Dispatcher.BeginInvoke(9, $ViewModelBase.psobject.UpdateViewDelegate, $UpdateValue )
             }
         } elseif ($null -ne $CommandParameter -and $null -eq $ActionCommand) {
             {
                 param($NoContextMethod, $ViewModelBase)
                 $UpdateValue = $NoContextMethod.Invoke($CommandParameter)
-                $ViewModelBase.psobject.DispatcherOperationInvokedAction = $ViewModelBase.psobject.Dispatcher.InvokeAsync([action] { $ViewModelBase.psobject.UpdateView($UpdateValue) })
+                $ViewModelBase.psobject.DispatcherOperationInvokedAction = $ViewModelBase.psobject.Dispatcher.BeginInvoke(9, $ViewModelBase.psobject.UpdateViewDelegate, $UpdateValue )
             }
         } else {
             {
                 param($NoContextMethod, $ViewModelBase, $CommandParameter)
                 $UpdateValue = $NoContextMethod.Invoke($CommandParameter)
-                $ViewModelBase.psobject.DispatcherOperationInvokedAction = $ViewModelBase.psobject.Dispatcher.InvokeAsync([action] { $ViewModelBase.psobject.UpdateView($UpdateValue) })
+                $ViewModelBase.psobject.DispatcherOperationInvokedAction = $ViewModelBase.psobject.Dispatcher.BeginInvoke(9, $ViewModelBase.psobject.UpdateViewDelegate, $UpdateValue )
                 # $ActionCommand.psobject.DispatcherOperationWorkerAction = $ActionCommand.psobject.Dispatcher.InvokeAsync($ActionCommand.psobject.RemoveWorker)
 
                 # Start added for Windows Powershell compatibility
@@ -149,6 +151,7 @@ class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChang
     $LastAction
     $DispatcherOperationInvokedAction
     $DispatcherOperationWorkerAction
+    $UpdateViewDelegate
 }
 
 class ActionCommand : ViewModelBase, System.Windows.Input.ICommand {
@@ -269,7 +272,8 @@ class MyViewModel : ViewModelBase {
     $ProgressPauseCommand
 
     # View
-    $SharedResource = 10
+    $LongTaskResource = 1
+    $RunCmdletResource = 10
     $DataGridJobsLock = [object]::new()
     $DataGridJobs = [System.Collections.ObjectModel.ObservableCollection[Object]]::new()
     $Status = 'Pause'
@@ -281,16 +285,16 @@ class MyViewModel : ViewModelBase {
     [pscustomobject]LongTask() {
         $Random = Get-Random -Min 100 -Max 5000
         Start-Sleep -Milliseconds $Random
-        return [pscustomobject]@{SharedResource = $Random }
+        return [pscustomobject]@{LongTaskResource = $Random }
     }
 
     [void]AnotherTask() {
-        $DataRow = [PSCustomObject]@{Id = [runspace]::DefaultRunspace.Id; Type = 'Start'; Time = Get-Date; Snapshot = $this.psobject.SharedResource; Method = 'AnotherTask' }
+        $DataRow = [PSCustomObject]@{Id = [runspace]::DefaultRunspace.Id; Type = 'Start'; Time = Get-Date; Snapshot = $this.psobject.LongTaskResource; Method = 'AnotherTask' }
         $this.psobject.DataGridJobs.Add($DataRow) # enabled by the following in the UI thread!: [System.Windows.Data.BindingOperations]::EnableCollectionSynchronization($MyViewModel.psobject.DataGridJobs, $MyViewModel.psobject.DataGridJobsLock)
 
         $DummyItems = 1..10
         $DummyItems | ForEach-Object {
-            $DataRow = [PSCustomObject]@{Id = [runspace]::DefaultRunspace.Id; Type = 'Processing'; Time = Get-Date; Snapshot = $this.psobject.SharedResource; Method = 'AnotherTask' }
+            $DataRow = [PSCustomObject]@{Id = [runspace]::DefaultRunspace.Id; Type = 'Processing'; Time = Get-Date; Snapshot = $this.psobject.LongTaskResource; Method = 'AnotherTask' }
 
             $this.psobject.DataGridJobs.Add($DataRow)
 
@@ -298,7 +302,7 @@ class MyViewModel : ViewModelBase {
             Start-Sleep -Milliseconds $Random
         }
 
-        $DataRow = [PSCustomObject]@{Id = [runspace]::DefaultRunspace.Id; Type = 'End'; Time = Get-Date; Snapshot = $this.psobject.SharedResource; Method = 'AnotherTask' }
+        $DataRow = [PSCustomObject]@{Id = [runspace]::DefaultRunspace.Id; Type = 'End'; Time = Get-Date; Snapshot = $this.psobject.LongTaskResource; Method = 'AnotherTask' }
         $this.psobject.DataGridJobs.Add($DataRow)
     }
 
@@ -323,7 +327,7 @@ class MyViewModel : ViewModelBase {
     }
 
     [void]RunCmdlet() {
-        $this.SharedResource = Invoke-SampleCmdlet
+        $this.RunCmdletResource = Invoke-SampleCmdlet
     }
 }
 
@@ -361,7 +365,10 @@ function Invoke-SampleCmdlet {
                             <RowDefinition Height="50" />
                         </Grid.RowDefinitions>
 
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding SharedResource, UpdateSourceTrigger=PropertyChanged}" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <StackPanel Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" HorizontalAlignment="Center">
+                            <TextBlock Text="{Binding LongTaskResource}" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding RunCmdletResource}" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </StackPanel>
                         <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Center">
                             <Button Name="LongTask" Content="LongTask" Command="{Binding LongTaskCommand}" Style="{DynamicResource AccentButtonStyle}" Margin="5" Width="100" HorizontalAlignment="Center"/>
                             <Button Name="RunCmdlet" Content="RunCmdlet" Command="{Binding RunCmdletCommand}" Style="{DynamicResource AccentButtonStyle}" Margin="5" Width="100" HorizontalAlignment="Center"/>
