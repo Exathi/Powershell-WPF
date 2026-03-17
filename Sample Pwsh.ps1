@@ -79,6 +79,7 @@ class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChang
 
     [void]UpdateView($UpdateValue) {
         if ($null -eq $UpdateValue) { return }
+        if ($UpdateValue -isnot [pscustomobject]) { return }
         $UpdateValue.psobject.Properties | ForEach-Object {
             $this.$($_.Name) = $_.Value
         }
