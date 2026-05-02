@@ -94,15 +94,11 @@ class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChang
         $this.psobject.Dispatcher.BeginInvoke(9, $this.psobject.UpdateWithDispatcherDelegate, $UpdateValue)
     }
 
-    [System.Threading.Tasks.Task]StartAsync($MethodToRunAsync, [ViewModelBase]$Target, $CommandParameter) {
-        return $this.psobject.StartAsync($MethodToRunAsync, [ViewModelBase]$Target, $CommandParameter, $null)
-    }
-
     [System.Threading.Tasks.Task]StartAsync($MethodToRunAsync, [ViewModelBase]$Target, $CommandParameter, $ActionCommand) {
         $Powershell = [powershell]::Create()
         $Powershell.RunspacePool = $Target.psobject.ViewModelThread['Pool'] # Will use a default runspace if ViewModelThread is $null
 
-        $Delegate = if ($null -eq $CommandParameter -and $null -ne $ActionCommand) {
+        $Delegate = if ($null -eq $CommandParameter -and $ActionCommand.psobject.Throttle -gt 0) {
             {
                 param($NoContextMethod, $ActionCommand)
                 try {
@@ -111,14 +107,14 @@ class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChang
                     # Pipeline output can be received in $LastAction.Result
                 } catch { throw $_ }
             }
-        } elseif ($null -eq $CommandParameter -and $null -eq $ActionCommand) {
+        } elseif ($null -eq $CommandParameter -and $ActionCommand.psobject.Throttle -eq 0) {
             {
                 param($NoContextMethod)
                 try {
                     $NoContextMethod.Invoke()
                 } catch { throw $_ }
             }
-        } elseif ($null -ne $CommandParameter -and $null -eq $ActionCommand) {
+        } elseif ($null -ne $CommandParameter -and $ActionCommand.psobject.Throttle -eq 0) {
             {
                 param($NoContextMethod, $CommandParameter)
                 try {
@@ -140,7 +136,7 @@ class ViewModelBase : PSCustomObject, System.ComponentModel.INotifyPropertyChang
         $null = $Powershell.AddScript($NoContext)
         $null = $Powershell.AddParameter('NoContextMethod', $MethodToRunAsync)
         if ($null -ne $CommandParameter) { $null = $Powershell.AddParameter('CommandParameter', $CommandParameter) }
-        if ($null -ne $ActionCommand) { $null = $Powershell.AddParameter('ActionCommand', $ActionCommand) }
+        if ($ActionCommand.psobject.Throttle -gt 0) { $null = $Powershell.AddParameter('ActionCommand', $ActionCommand) }
         $Handle = $Powershell.BeginInvoke()
 
         $EndInvokeDelegate = $this.psobject.CreateDelegate($Powershell.EndInvoke, $Powershell) # Not needed with pwsh

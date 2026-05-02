@@ -18,24 +18,22 @@ class ActionCommand : ViewModelBase, System.Windows.Input.ICommand {
     [void]Execute([object]$CommandParameter) {
         if ($this.psobject.Throttle -gt 0) { $this.Workers++ }
 
-        $Delegate = if ($this.psobject.Action) { $this.psobject.Action } else { $this.psobject.ActionObject }
-
         if ($this.psobject.IsAsync) {
-            if ($this.psobject.Throttle -gt 0) {
-                $null = $this.psobject.StartAsync($Delegate, $this.psobject.Target, $null, $this)
+            if ($this.psobject.ActionObject) {
+                $this.psobject.LastAction = $this.psobject.StartAsync($this.psobject.ActionObject, $this.psobject.Target, $CommandParameter, $this)
             } else {
-                $null = $this.psobject.StartAsync($Delegate, $this.psobject.Target, $null)
+                $this.psobject.LastAction = $this.psobject.StartAsync($this.psobject.Action, $this.psobject.Target, $null, $this)
             }
         } else {
-            $Delegate.Invoke()
+            if ($this.psobject.ActionObject) {
+                $this.psobject.ActionObject.Invoke($CommandParameter)
+            } else {
+                $this.psobject.Action.Invoke()
+            }
             if ($this.psobject.Throttle -gt 0) { $this.psobject.RemoveWorker() }
         }
     }
     # End ICommand Implementation
-
-    ActionCommand([System.Management.Automation.PSMethod]$Action) : Base($false) {
-        $this.psobject.Init($Action, $false, $null, 0)
-    }
 
     ActionCommand([System.Management.Automation.PSMethod]$Action, [bool]$IsAsync, [ViewModelBase]$Target, [int]$Throttle) : Base($false) {
         $this.psobject.Init($Action, $IsAsync, $Target, $Throttle)
@@ -44,7 +42,12 @@ class ActionCommand : ViewModelBase, System.Windows.Input.ICommand {
     hidden Init([System.Management.Automation.PSMethod]$Action, [bool]$IsAsync, [ViewModelBase]$Target, [int]$Throttle) {
         $Delegate = $this.psobject.CreateDelegate($Action, $Target)
 
-        $this.psobject.Action = $Delegate
+        if ($Delegate -is [action]) {
+            $this.psobject.Action = $Delegate
+        } else {
+            $this.psobject.ActionObject = $Delegate
+        }
+
         $this.psobject.IsAsync = $IsAsync
         $this.psobject.Target = $Target
         $this.psobject.Throttle = $Throttle
@@ -89,8 +92,8 @@ class ActionCommand : ViewModelBase, System.Windows.Input.ICommand {
 
     [ViewModelBase]$Target
     [bool]$IsAsync = $false
-    $Action
-    $ActionObject
+    [delegate]$Action
+    [delegate]$ActionObject
     $CanExecuteAction
     $Workers = 0
     $Throttle = 1
