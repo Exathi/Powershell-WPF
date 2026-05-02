@@ -20,6 +20,7 @@ function New-ActionCommand {
         [Parameter(Mandatory)]
         [string]$MethodName,
         [bool]$IsAsync = $true,
+        [Parameter(Mandatory)]
         [object]$Target,
         [int]$Throttle = 1
     )
