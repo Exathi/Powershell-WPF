@@ -13,6 +13,14 @@ function New-WpfObject {
         .PARAMETER DataContext
         The ViewModel class object that the WpfObject will use.
 
+        .PARAMETER Namespace
+        The namespace for the in memory powershell assembly.
+        This changes for each module/assembly and the order they load in.
+
+        xmlns:local="clr-namespace:;assembly=PowerShell Class Assembly, Version=1.0.0.3, Culture=neutral, PublicKeyToken=null"
+        (xmlns:local="clr-namespace:;assembly={0}" -f [CustomClass].Assembly.FullName)
+        (xmlns:ps="clr-namespace:;assembly={0}" -f (Get-Module -Name ModuleName).ImplementingAssembly.FullName)
+
         .EXAMPLE
         $Window = New-WpfObject -Xaml $Xaml -DataContext $ViewModel
         $ResourceDictionary = New-WpfObject -Path $Path
@@ -24,13 +32,19 @@ function New-WpfObject {
         [Parameter(Mandatory, ValueFromPipeline, ValueFromPipelineByPropertyName, Position = 0, ParameterSetName = 'Path')]
         [ValidateScript({ Test-Path $_ })]
         [string[]]$Path,
-        [string]$BaseUri,
+        [Parameter(Mandatory = $false, ParameterSetName = 'Path')]
+        [string[]]$Namespace,
         [ViewModelBase]$DataContext
     )
 
     process {
         $RawXaml = if ($PSBoundParameters.ContainsKey('Path')) {
-            Get-Content -Path $Path -Raw
+            $Raw = Get-Content -Path $Path -Raw
+            if ($Namespace) {
+                $Raw.Replace('<Window ', "<Window $($Namespace -join ' ') ", [System.StringComparison]::OrdinalIgnoreCase)
+            } else {
+                $Raw
+            }
         } else {
             $Xaml
         }
