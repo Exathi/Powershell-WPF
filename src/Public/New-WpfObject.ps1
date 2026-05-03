@@ -15,15 +15,26 @@ function New-WpfObject {
 
         .PARAMETER Namespace
         The namespace for the in memory powershell assembly.
-        This changes for each module/assembly and the order they load in.
+        The version changes for each module/assembly and the order loaded in.
+        Each different inline class defined in the terminal creates a new assembly version for it.
+        Classes defined in another ps1 and invoked in count as the same assembly.
 
         xmlns:local="clr-namespace:;assembly=PowerShell Class Assembly, Version=1.0.0.3, Culture=neutral, PublicKeyToken=null"
         (xmlns:local="clr-namespace:;assembly={0}" -f [CustomClass].Assembly.FullName)
         (xmlns:ps="clr-namespace:;assembly={0}" -f (Get-Module -Name ModuleName).ImplementingAssembly.FullName)
 
+        .PARAMETER BaseUri
+        The base URI for the Xaml. This allows for relative paths to be used in the Xaml for resources.
+        Must end with a forward slash. Example: "C:/Path/To/Resources/"
+
         .EXAMPLE
         $Window = New-WpfObject -Xaml $Xaml -DataContext $ViewModel
+
+        .EXAMPLE
         $ResourceDictionary = New-WpfObject -Path $Path
+
+        .EXAMPLE
+        $Window = New-WpfObject -Path $Path -DataContext $ViewModel -Namespace ('xmlns:local="clr-namespace:;assembly={0}"' -f [ViewModel].Assembly.FullName) -BaseUri "$PSScriptRoot/"
     #>
     [CmdletBinding(DefaultParameterSetName = 'Path')]
     param (
@@ -34,6 +45,7 @@ function New-WpfObject {
         [string[]]$Path,
         [Parameter(Mandatory = $false, ParameterSetName = 'Path')]
         [string[]]$Namespace,
+        [string]$BaseUri,
         [ViewModelBase]$DataContext
     )
 
@@ -41,7 +53,9 @@ function New-WpfObject {
         $RawXaml = if ($PSBoundParameters.ContainsKey('Path')) {
             $Raw = Get-Content -Path $Path -Raw
             if ($Namespace) {
-                $Raw.Replace('<Window ', "<Window $($Namespace -join ' ') ", [System.StringComparison]::OrdinalIgnoreCase)
+                $Pattern = '<([^ ]+)'
+                $Replacement = '<$1 {0}' -f $($Namespace -join ' ')
+                [regex]::new($Pattern).Replace($Raw, $Replacement, [System.StringComparison]::CurrentCultureIgnoreCase)
             } else {
                 $Raw
             }
@@ -49,7 +63,15 @@ function New-WpfObject {
             $Xaml
         }
 
-        $WpfObject = [System.Windows.Markup.XamlReader]::Parse($RawXaml)
+        $WpfObject = if ($BaseUri) {
+            $SanitizedUri = $BaseUri -replace '\\', '/'
+            if ($SanitizedUri[-1] -ne '/') { $SanitizedUri = "$SanitizedUri/" }
+            $ParserContext = [System.Windows.Markup.ParserContext]::new()
+            $ParserContext.BaseUri = [System.Uri]::new($SanitizedUri, [System.UriKind]::Absolute)
+            [System.Windows.Markup.XamlReader]::Parse($RawXaml, $ParserContext)
+        } else {
+            [System.Windows.Markup.XamlReader]::Parse($RawXaml)
+        }
 
         if ($DataContext) {
             # because $DataContext can be created unbound, it may not have the same dispatcher as $WpfObject so it is set here.
