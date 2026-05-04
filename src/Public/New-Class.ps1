@@ -124,10 +124,32 @@ function New-Class {
         Declares all properties as normal without add-member and without the default underscore prefix.
         Ignores the ExcludePrefix of PropertyInit.
 
+        .PARAMETER ClassType
+        Used to create classes of the same assembly version after the -AsString definition has been invoked in the current scope.
+
+        .EXAMPLE
+        Create classes of the same assembly instead of redefining every time.
+
+        $MainDef = New-Class -ClassName 'Main' -AsString
+        $AnotherDef = New-Class -ClassName 'Another' -AsString
+
+        *** Important to call it together in the same scriptblock as multiple scriptblocks is treated the same as inlining the class in the terminal one at a time.
+        . ([scriptblock]::Create("
+        $MainDef
+        $AnotherDef
+        "))
+
+        $Main = New-Class -Type 'Main'
+        $Another = New-Class -Type 'Another'
+
+        $Main.psobject.GetType().Assembly.FullName
+        $Another.psobject.GetType().Assembly.FullName
+
     #>
     [CmdletBinding(DefaultParameterSetName = 'AsObject')]
     param (
-        [Parameter(Mandatory)]
+        [Parameter(Mandatory, ParameterSetName = 'AsObject')]
+        [Parameter(Mandatory, ParameterSetName = 'AsTypeWithDefinition')]
         [string]$ClassName,
         [string[]]$Inherits = 'pscustomobject',
         [Parameter(ParameterSetName = 'AsObject')]
@@ -138,8 +160,20 @@ function New-Class {
         [bool]$Unbound = $true,
         [bool]$AutomaticProperties = $false,
         [switch]$AsString,
-        [switch]$ExcludeScriptProperty
+        [switch]$ExcludeScriptProperty,
+        [Parameter(ParameterSetName = 'AsSameAssembly')]
+        [type]$Type
     )
+
+    if ($Type) {
+        if ($Unbound) {
+            $DynamicClass = New-UnboundClassInstance $Type
+        } else {
+            $DynamicClass = [activator]::CreateInstance($Type)
+        }
+
+        return $DynamicClass
+    }
 
     $StringBuilder = [System.Text.StringBuilder]::new()
 
@@ -275,7 +309,6 @@ function New-Class {
         foreach ($ClassProperty in $ClassProperties.Parent.Member.Extent.Text) {
             if ([string]::IsNullOrWhiteSpace($ClassProperty)) { continue }
             if ($PropertyDeclaration -contains $ClassProperty) { continue }
-            if ($PropertyInit.Name -contains $ClassProperty) { continue }
             if ($PropertyInit.Name -contains $ClassProperty) { continue }
             if ($ClassProperty -eq 'psobject') { continue }
             $null = $UniqueProperties.Add($ClassProperty)

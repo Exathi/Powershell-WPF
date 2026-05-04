@@ -107,10 +107,32 @@ function New-ViewModel {
 
         .PARAMETER AsString
         Returns the full class definition as a string instead of the object.
+
+        .PARAMETER Type
+        Used to create classes of the same assembly version after the -AsString definition has been invoked in the current scope.
+
+        .EXAMPLE
+        Create classes of the same assembly instead of redefining every time.
+
+        $MainViewModelDef = New-ViewModel -ClassName 'MainViewModel' -AsString
+        $AnotherViewModelDef = New-ViewModel -ClassName 'AnotherViewModel' -AsString
+
+        *** Important to call it together in the same scriptblock as multiple scriptblocks is treated the same as inlining the class in the terminal one at a time.
+        . ([scriptblock]::Create("
+        $MainViewModelDef
+        $AnotherViewModelDef
+        "))
+
+        $Main = New-ViewModel -Type 'MainViewModel'
+        $Another = New-ViewModel -Type 'AnotherViewModel'
+
+        $Main.psobject.GetType().Assembly.FullName
+        $Another.psobject.GetType().Assembly.FullName
     #>
     [CmdletBinding(DefaultParameterSetName = 'AsObject')]
     param (
-        [Parameter(Mandatory)]
+        [Parameter(Mandatory, ParameterSetName = 'AsObject')]
+        [Parameter(Mandatory, ParameterSetName = 'AsTypeWithDefinition')]
         [string]$ClassName,
         [Parameter(ParameterSetName = 'AsObject')]
         [string[]]$PropertyDeclaration,
@@ -119,8 +141,23 @@ function New-ViewModel {
         [pscustomobject[]]$Methods,
         [bool]$Unbound = $true,
         [bool]$AutomaticProperties = $false,
-        [switch]$AsString
+        [switch]$AsString,
+        [Parameter(ParameterSetName = 'AsSameAssembly')]
+        [type]$Type
     )
+
+    if ($Type) {
+        if ($Unbound) {
+            $DynamicClass = New-UnboundClassInstance $Type
+        } else {
+            $DynamicClass = [activator]::CreateInstance($Type)
+        }
+
+        if (!$script:ViewModelThread['Pool'] -or $script:ViewModelThread['Pool'].IsDisposed) { Set-ViewModelPool }
+        $DynamicClass.psobject.ViewModelThread = $script:ViewModelThread
+
+        return $DynamicClass
+    }
 
     $StringBuilder = [System.Text.StringBuilder]::new()
 
@@ -177,6 +214,19 @@ function New-ViewModel {
         }
     }
 
+    # # add a command property for each method
+    $ExcludeProperties = [System.Collections.Generic.HashSet[string]]::new()
+    foreach ($PSMethod in $Methods) {
+        if ($PSMethod.ExcludeCommand) { continue }
+        $CommandName = if ([string]::IsNullOrWhiteSpace($PSMethod.CommandName)) { "$($PSMethod.Name)Command" } else { $PSMethod.CommandName }
+        $null = $ExcludeProperties.Add($CommandName)
+        $null = $ExcludeProperties.Add("_$CommandName")
+
+        # The powershell instance does not know of New-ActionCommand but knows of the type [ActionCommand]
+        # $null = $StringBuilder.AppendLine(('$this.{0} = New-ActionCommand -MethodName {1} -Target $this -Throttle {2} -IsAsync ${3}' -f $CommandName, $PSMethod.Name, $PSMethod.Throttle, $PSMethod.IsAsync))
+        $null = $StringBuilder.AppendLine(('$this.{0} = [ActionCommand]::new($this.psobject.{1}, ${2}, $this, {3})' -f $CommandName, $PSMethod.Name, $PSMethod.IsAsync, $PSMethod.Throttle))
+    }
+
     # end constructor
     $null = $StringBuilder.AppendLine('}')
 
@@ -227,6 +277,9 @@ function New-ViewModel {
             if ([string]::IsNullOrWhiteSpace($ClassProperty)) { continue }
             if ($PropertyDeclaration -contains $ClassProperty) { continue }
             if ($PropertyInit.Name -contains $ClassProperty) { continue }
+            if ($ClassProperty -eq 'psobject') { continue }
+            if ($ClassProperty -in $ExcludeProperties) { continue }
+
             $null = $UniqueProperties.Add($ClassProperty)
         }
 
@@ -252,11 +305,11 @@ function New-ViewModel {
     }
 
     # add a command property for each method
-    foreach ($PSMethod in $Methods) {
-        if ($PSMethod.ExcludeCommand) { continue }
-        $CommandName = if ([string]::IsNullOrWhiteSpace($PSMethod.CommandName)) { "$($PSMethod.Name)Command" } else { $PSMethod.CommandName }
-        $DynamicClass."$CommandName" = New-ActionCommand -MethodName $PSMethod.Name -Target $DynamicClass -Throttle $PSMethod.Throttle -IsAsync $PSMethod.IsAsync
-    }
+    # foreach ($PSMethod in $Methods) {
+    #     if ($PSMethod.ExcludeCommand) { continue }
+    #     $CommandName = if ([string]::IsNullOrWhiteSpace($PSMethod.CommandName)) { "$($PSMethod.Name)Command" } else { $PSMethod.CommandName }
+    #     $DynamicClass."$CommandName" = New-ActionCommand -MethodName $PSMethod.Name -Target $DynamicClass -Throttle $PSMethod.Throttle -IsAsync $PSMethod.IsAsync
+    # }
 
     if (!$script:ViewModelThread['Pool'] -or $script:ViewModelThread['Pool'].IsDisposed) { Set-ViewModelPool }
     $DynamicClass.psobject.ViewModelThread = $script:ViewModelThread
