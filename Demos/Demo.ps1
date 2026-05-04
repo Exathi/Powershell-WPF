@@ -28,7 +28,7 @@ $ServiceModel = New-Class -ClassName 'ServiceModel' -PropertyInit @(
     }
     New-ClassMethod -Name 'DotSourced' -Body {
         try {
-            $DotSourcedItem = . .\DemoDotSource.ps1
+            $DotSourcedItem = . .\Demos\DemoDotSource.ps1
         } catch {
             Write-Warning "Method DotSourced failed. Current location is: '$PWD' and the dotsourced script isn't here. Source the fullpath or set '[Environment]::CurrentDirectory = Get-Location' before launching the gui."
         }
