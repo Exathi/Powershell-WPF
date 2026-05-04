@@ -166,7 +166,19 @@ function New-ViewModel {
         $null = $StringBuilder.AppendLine($RawText)
     }
 
-    $null = $StringBuilder.AppendLine(('}}' -f $ClassName))
+    foreach ($ClassProperty in $PropertyInit) {
+        $BackingFieldName = if ($ClassProperty.ExcludePrefix) {
+            $ClassProperty.Name
+        } else {
+            "_$($ClassProperty.Name)"
+        }
+        if ($ClassProperty.Get -and $ClassProperty.Set) {
+            $null = $StringBuilder.AppendLine(('$this | Add-Member -MemberType ScriptProperty -Name {0} -Value {{{1}}} -SecondValue {{{2}}} -Force' -f $ClassProperty.Name, $ClassProperty.Get.Ast.GetScriptBlock(), $ClassProperty.Set.Ast.GetScriptBlock()))
+        }
+    }
+
+    # end constructor
+    $null = $StringBuilder.AppendLine('}')
 
 
     # methods
@@ -246,17 +258,8 @@ function New-ViewModel {
         $DynamicClass."$CommandName" = New-ActionCommand -MethodName $PSMethod.Name -Target $DynamicClass -Throttle $PSMethod.Throttle -IsAsync $PSMethod.IsAsync
     }
 
-
     if (!$script:ViewModelThread['Pool'] -or $script:ViewModelThread['Pool'].IsDisposed) { Set-ViewModelPool }
     $DynamicClass.psobject.ViewModelThread = $script:ViewModelThread
-
-    # ViewModelBase automatically adds script properties so this differs from New-Class
-
-    foreach ($ClassProperty in $PropertyInit) {
-        if ($ClassProperty.Get -and $ClassProperty.Set) {
-            $DynamicClass | Add-Member -MemberType ScriptProperty -Name $ClassProperty.Name -Value $ClassProperty.Get.Ast.GetScriptBlock() -SecondValue $ClassProperty.Set.Ast.GetScriptBlock() -Force
-        }
-    }
 
     $DynamicClass
 }

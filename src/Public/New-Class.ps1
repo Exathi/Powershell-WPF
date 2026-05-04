@@ -247,10 +247,10 @@ function New-Class {
             "_$($ClassProperty.Name)"
         }
         if ($ClassProperty.Get -and $ClassProperty.Set) {
-            $null = $StringBuilder.Append(('$this | Add-Member -MemberType ScriptProperty -Name {0} -Value {{{1}}} -SecondValue {{{2}}}' -f $ClassProperty.Name, $ClassProperty.Get.Ast.GetScriptBlock(), $ClassProperty.Set.Ast.GetScriptBlock()))
+            $null = $StringBuilder.AppendLine(('$this | Add-Member -MemberType ScriptProperty -Name {0} -Value {{{1}}} -SecondValue {{{2}}}' -f $ClassProperty.Name, $ClassProperty.Get.Ast.GetScriptBlock(), $ClassProperty.Set.Ast.GetScriptBlock()))
         } else {
             if (-not $ExcludeScriptProperty) {
-                $null = $StringBuilder.Append(('$this | Add-Member -MemberType ScriptProperty -Name {0} -Value {{{1}}} -SecondValue {{{2}}}' -f $ClassProperty.Name, ('return ,$this.psobject.{0}' -f $BackingFieldName), ('param($value)
+                $null = $StringBuilder.AppendLine(('$this | Add-Member -MemberType ScriptProperty -Name {0} -Value {{{1}}} -SecondValue {{{2}}}' -f $ClassProperty.Name, ('return ,$this.psobject.{0}' -f $BackingFieldName), ('param($value)
             $this.psobject.{0} = $value' -f $BackingFieldName)))
             }
         }
