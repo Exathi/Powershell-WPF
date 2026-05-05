@@ -2,10 +2,11 @@ function New-ViewModel {
     <#
         .SYNOPSIS
         Dynamically creates a class object that inherits ViewModeBase.
-        Properties preceeed by `$this` used in Methods that aren't defined in PropertyDeclaration will automatically be defined as a property of the class.
-        Method overloads are not supported.
 
-        Allows for classes of the same type name with different properties and methods but allows for hot reloading of classes.
+        .DESCRIPTION
+        Creates a class object that inherits ViewModeBase. View models created this way will use the same shared runspacepool from Set-ViewModelPool.
+        Properties preceeed by `$this` used in Methods that aren't defined in PropertyDeclaration will automatically be defined as a property of the class.
+        Method overloads are not supported for commands.
 
         .EXAMPLE
         $A = New-ViewModel -ClassName 'ClassType' -PropertyDeclaration 'One'
@@ -128,6 +129,9 @@ function New-ViewModel {
 
         $Main.psobject.GetType().Assembly.FullName
         $Another.psobject.GetType().Assembly.FullName
+
+        .PARAMETER ConstructorBody
+        The body of the constructor. If unbound is $true this will not have access to imported functions.
     #>
     [CmdletBinding(DefaultParameterSetName = 'AsObject')]
     param (
@@ -143,7 +147,8 @@ function New-ViewModel {
         [bool]$AutomaticProperties = $false,
         [switch]$AsString,
         [Parameter(ParameterSetName = 'AsSameAssembly')]
-        [type]$Type
+        [type]$Type,
+        [scriptblock]$ConstructorBody
     )
 
     if ($Type) {
@@ -193,14 +198,8 @@ function New-ViewModel {
             $BackingFieldName = "psobject._$($ClassProperty.Name)"
         }
 
-        $RawText = @"
-`$this.$BackingFieldName = [scriptblock]::Create(
-@'
-,($($ClassProperty.Init.ToString()))
-'@
-).InvokeReturnAsIs()
-"@
-        $null = $StringBuilder.AppendLine($RawText)
+        $null = $StringBuilder.Append(('$this.{0} = ' -f $BackingFieldName))
+        $null = $StringBuilder.AppendLine($ClassProperty.Init.ToString())
     }
 
     foreach ($ClassProperty in $PropertyInit) {
@@ -225,6 +224,10 @@ function New-ViewModel {
         # The powershell instance does not know of New-ActionCommand but knows of the type [ActionCommand]
         # $null = $StringBuilder.AppendLine(('$this.{0} = New-ActionCommand -MethodName {1} -Target $this -Throttle {2} -IsAsync ${3}' -f $CommandName, $PSMethod.Name, $PSMethod.Throttle, $PSMethod.IsAsync))
         $null = $StringBuilder.AppendLine(('$this.{0} = [ActionCommand]::new($this.psobject.{1}, ${2}, $this, {3})' -f $CommandName, $PSMethod.Name, $PSMethod.IsAsync, $PSMethod.Throttle))
+    }
+
+    if ($ConstructorBody) {
+        $null = $StringBuilder.AppendLine($ConstructorBody.ToString())
     }
 
     # end constructor

@@ -145,6 +145,9 @@ function New-Class {
         $Main.psobject.GetType().Assembly.FullName
         $Another.psobject.GetType().Assembly.FullName
 
+        .PARAMETER ConstructorBody
+        The body of the constructor. If unbound is $true this will not have access to imported functions.
+
     #>
     [CmdletBinding(DefaultParameterSetName = 'AsObject')]
     param (
@@ -162,7 +165,8 @@ function New-Class {
         [switch]$AsString,
         [switch]$ExcludeScriptProperty,
         [Parameter(ParameterSetName = 'AsSameAssembly')]
-        [type]$Type
+        [type]$Type,
+        [scriptblock]$ConstructorBody
     )
 
     if ($Type) {
@@ -244,14 +248,8 @@ function New-Class {
             $BackingFieldName = $ClassProperty.Name
         }
 
-        $RawText = @"
-`$this.$BackingFieldName = [scriptblock]::Create(
-@'
-,($($ClassProperty.Init.ToString()))
-'@
-).InvokeReturnAsIs()
-"@
-        $null = $StringBuilder.AppendLine($RawText)
+        $null = $StringBuilder.Append(('$this.{0} = ' -f $BackingFieldName))
+        $null = $StringBuilder.AppendLine($ClassProperty.Init.ToString())
     }
 
     $ConstructorScriptProperties = $PropertyDeclaration -join '","'
@@ -288,6 +286,10 @@ function New-Class {
             $this.psobject.{0} = $value' -f $BackingFieldName)))
             }
         }
+    }
+
+    if ($ConstructorBody) {
+        $null = $StringBuilder.AppendLine($ConstructorBody.ToString())
     }
 
     # end constructor
