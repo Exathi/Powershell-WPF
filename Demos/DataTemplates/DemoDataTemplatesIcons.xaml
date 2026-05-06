@@ -1,0 +1,319 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- https://github.com/microsoft/fluentui-system-icons/blob/main/icons_color.md -->
+
+    <!-- HomeIcon -->
+    <!-- Door/Base Gradient -->
+    <LinearGradientBrush x:Key="HomeDoorBrush"
+                         StartPoint="12,13"
+                         EndPoint="6.7067,21.8251"
+                         MappingMode="Absolute">
+        <GradientStop Color="#944600"
+                      Offset="0" />
+        <GradientStop Color="#CD8E02"
+                      Offset="1" />
+    </LinearGradientBrush>
+
+    <!-- House Body Gradient -->
+    <LinearGradientBrush x:Key="HomeBodyBrush"
+                         StartPoint="4.71799,3.17161"
+                         EndPoint="21.5682,17.6733"
+                         MappingMode="Absolute">
+        <GradientStop Color="#FFD394"
+                      Offset="0" />
+        <GradientStop Color="#FFB357"
+                      Offset="1" />
+    </LinearGradientBrush>
+
+    <!-- Roof Gradient (Reused for both roof paths) -->
+    <LinearGradientBrush x:Key="HomeRoofBrush"
+                         StartPoint="8.76835,-0.375046"
+                         EndPoint="13.1615,11.5055"
+                         MappingMode="Absolute">
+        <GradientStop Color="#FF921F"
+                      Offset="0" />
+        <GradientStop Color="#EB4824"
+                      Offset="1" />
+    </LinearGradientBrush>
+
+    <DrawingImage x:Key="HomeIcon">
+        <DrawingImage.Drawing>
+            <DrawingGroup>
+                <!-- Path 1: Door/Internal Base -->
+                <GeometryDrawing Brush="{StaticResource HomeDoorBrush}"
+                                 Geometry="M9 13H15V21H9V13Z" />
+
+                <!-- Path 2: Main House Body -->
+                <GeometryDrawing Brush="{StaticResource HomeBodyBrush}"
+                                 Geometry="M13.4508 4.53318C12.6128 3.82618 11.3872 3.82618 10.5492 4.53318L3.79916 10.2277C3.29241 10.6552 3 11.2845 3 11.9475V19.2526C3 20.2191 3.7835 21.0026 4.75 21.0026H7.75H9.5V15.25C9.5 14.5707 10.0418 14.018 10.7169 14.0004H13.2831C13.9582 14.018 14.5 14.5707 14.5 15.25V21.0026H16.25H19.25C20.2165 21.0026 21 20.2191 21 19.2526V11.9475C21 11.2845 20.7076 10.6552 20.2008 10.2277L13.4508 4.53318Z" />
+
+                <!-- Path 3: Roof Side A -->
+                <GeometryDrawing Brush="{StaticResource HomeRoofBrush}"
+                                 Geometry="F1 M12.8044 2.2988C12.3455 1.9004 11.6545 1.9004 11.1956 2.2988L2.40744 9.92806C1.90688 10.3626 1.86123 11.1118 2.30548 11.6014C2.74973 12.0911 3.51565 12.1357 4.01621 11.7012L12 4.77023L19.9838 11.7012C20.4844 12.1357 21.2503 12.0911 21.6945 11.6014C22.1388 11.1118 22.0931 10.3626 21.5926 9.92806L12.8044 2.2988Z" />
+
+                <!-- Path 4: Roof Side B -->
+                <GeometryDrawing Brush="{StaticResource HomeRoofBrush}"
+                                 Geometry="F1 M11.1956 2.2988C11.6545 1.9004 12.3455 1.9004 12.8044 2.2988L21.5926 9.92806C22.0931 10.3626 22.1388 11.1118 21.6945 11.6014C21.2503 12.0911 20.4844 12.1357 19.9838 11.7012L12 4.77023L4.01621 11.7012C3.51565 12.1357 2.74973 12.0911 2.30548 11.6014C1.86123 11.1118 1.90688 10.3626 2.40744 9.92806L11.1956 2.2988Z" />
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
+    <!-- DataIcon -->
+    <!-- Gradient for the main cylinder body -->
+    <LinearGradientBrush x:Key="CylinderBodyBrush"
+                         StartPoint="7.777,2.395"
+                         EndPoint="16.434,20.576"
+                         MappingMode="Absolute">
+        <GradientStop Color="#29C3FF"
+                      Offset="0" />
+        <GradientStop Color="#367AF2"
+                      Offset="1" />
+    </LinearGradientBrush>
+
+    <!-- Gradient for the pink overlay (fill-opacity 0.7) -->
+    <LinearGradientBrush x:Key="PinkOverlayBrush"
+                         StartPoint="14.476,7.964"
+                         EndPoint="17.647,23.720"
+                         MappingMode="Absolute"
+                         Opacity="0.7">
+        <GradientStop Color="#00FF6CE8"
+                      Offset="0.532" /> <!-- Hex starts with 00 for 0 opacity -->
+        <GradientStop Color="#FFFF6CE8"
+                      Offset="1" />
+    </LinearGradientBrush>
+
+    <!-- Gradient for the cylinder top -->
+    <LinearGradientBrush x:Key="CylinderTopBrush"
+                         StartPoint="26,14"
+                         EndPoint="16.754,-2.828"
+                         MappingMode="Absolute">
+        <GradientStop Color="#58AAFE"
+                      Offset="0" />
+        <GradientStop Color="#6CE0FF"
+                      Offset="1" />
+    </LinearGradientBrush>
+
+    <DrawingImage x:Key="DatabaseIcon">
+        <DrawingImage.Drawing>
+            <DrawingGroup>
+                <!-- Body Path -->
+                <GeometryDrawing Brush="{StaticResource CylinderBodyBrush}"
+                                 Geometry="M18.327,7.116 C18.915,6.822 19.497,6.450 20,6 V18 C20,20.209 16.418,22 12,22 C7.581,22 4,20.209 4,18 V6 C4.502,6.450 5.084,6.822 5.672,7.116 C7.369,7.965 9.608,8.446 12,8.446 C14.391,8.446 16.630,7.965 18.327,7.116 Z" />
+
+                <!-- Pink Overlay Path -->
+                <GeometryDrawing Brush="{StaticResource PinkOverlayBrush}"
+                                 Geometry="M18.327,7.116 C18.915,6.822 19.497,6.450 20,6 V18 C20,20.209 16.418,22 12,22 C7.581,22 4,20.209 4,18 V6 C4.502,6.450 5.084,6.822 5.672,7.116 C7.369,7.965 9.608,8.446 12,8.446 C14.391,8.446 16.630,7.965 18.327,7.116 Z" />
+
+                <!-- Top Cap Path -->
+                <GeometryDrawing Brush="{StaticResource CylinderTopBrush}"
+                                 Geometry="M12,10 C16.418,10 20,8.209 20,6 C20,3.790 16.418,2 12,2 C7.581,2 4,3.790 4,6 C4,8.209 7.581,10 12,10 Z" />
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
+
+    <!-- BookIcon -->
+    <!-- Gradient for the bottom page edge detail -->
+    <LinearGradientBrush x:Key="BottomEdgeBrush"
+                         StartPoint="12.1739,20.4"
+                         EndPoint="12.1739,18"
+                         MappingMode="Absolute">
+        <GradientStop Color="#9DEAFF"
+                      Offset="0" />
+        <GradientStop Color="#58AAFE"
+                      Offset="0.7157" />
+    </LinearGradientBrush>
+
+    <!-- Gradient for the main book/notebook body -->
+    <LinearGradientBrush x:Key="BookBodyBrush"
+                         StartPoint="9.69295,5.74211"
+                         EndPoint="12.6806,27.308"
+                         MappingMode="Absolute">
+        <GradientStop Color="#20AC9D"
+                      Offset="0" />
+        <GradientStop Color="#2052CB"
+                      Offset="1" />
+    </LinearGradientBrush>
+
+    <!-- Gradient for the decorative label/header on the cover -->
+    <LinearGradientBrush x:Key="LabelBrush"
+                         StartPoint="10.4487,4.31375"
+                         EndPoint="15.0534,11.4776"
+                         MappingMode="Absolute">
+        <GradientStop Color="#9FF0F9"
+                      Offset="0" />
+        <GradientStop Color="#6CE0FF"
+                      Offset="1" />
+    </LinearGradientBrush>
+
+    <DrawingImage x:Key="BookIcon">
+        <DrawingImage.Drawing>
+            <DrawingGroup>
+                <!-- Bottom Page Detail -->
+                <GeometryDrawing Brush="{StaticResource BottomEdgeBrush}"
+                                 Geometry="M5,19 H20.2812 C20.2812,19 20,19.5 20,20 C20,20.5 20.2812,21 20.2812,21 H6 C5.44772,21 5,20.5523 5,20 V19 Z" />
+
+                <!-- Main Book Body -->
+                <GeometryDrawing Brush="{StaticResource BookBodyBrush}"
+                                 Geometry="M4,4.5 C4,3.11929 5.11929,2 6.5,2 H18 C19.3807,2 20.5,3.11929 20.5,4.5 V18.75 C20.5,19.1642 20.1642,19.5 19.75,19.5 H5.5 C5.5,20.0523 5.94772,20.5 6.5,20.5 H19.75 C20.1642,20.5 20.5,20.8358 20.5,21.25 C20.5,21.6642 20.1642,22 19.75,22 H6.5 C5.11929,22 4,20.8807 4,19.5 V4.5 Z" />
+
+                <!-- Decorative Label -->
+                <GeometryDrawing Brush="{StaticResource LabelBrush}"
+                                 Geometry="M7,6 C7,5.44772 7.44772,5 8,5 H16 C16.5523,5 17,5.44772 17,6 V8 C17,8.55228 16.5523,9 16,9 H8 C7.44772,9 7,8.55228 7,8 V6 Z" />
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
+    <!-- CodeIcon -->
+    <LinearGradientBrush x:Key="CodeIconGradient"
+                         StartPoint="2.588,2.933"
+                         EndPoint="20.693,22.309"
+                         MappingMode="Absolute">
+        <GradientStop Color="#FFC76EFB"
+                      Offset="0" />
+        <GradientStop Color="#FF8B52F4"
+                      Offset="1" />
+    </LinearGradientBrush>
+
+    <DrawingImage x:Key="CodeIcon">
+        <DrawingImage.Drawing>
+            <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
+                <GeometryDrawing Brush="{StaticResource CodeIconGradient}"
+                                 Geometry="M8.08553 18.6109L14.0817 4.60641C14.2991 4.09871 14.8868 3.86335 15.3946 4.08073C15.866 4.28258 16.1026 4.80382 15.96 5.28375L15.9202 5.39361L9.92409 19.3981C9.70671 19.9058 9.11892 20.1412 8.61121 19.9238C8.13977 19.722 7.90316 19.2007 8.04581 18.7208L8.08553 18.6109L14.0817 4.60641L8.08553 18.6109ZM2.29289 11.2929L6.29289 7.29291C6.68342 6.90238 7.31658 6.90238 7.70711 7.29291C8.06759 7.65339 8.09532 8.22062 7.7903 8.61291L7.70711 8.70712L4.41421 12L7.70711 15.2929C8.09763 15.6834 8.09763 16.3166 7.70711 16.7071C7.34662 17.0676 6.77939 17.0953 6.3871 16.7903L6.29289 16.7071L2.29289 12.7071C1.93241 12.3466 1.90468 11.7794 2.2097 11.3871L2.29289 11.2929L6.29289 7.29291L2.29289 11.2929ZM16.2921 7.29167C16.6526 6.9312 17.2198 6.9035 17.6121 7.20854L17.7063 7.29173L21.7071 11.2929C22.0678 11.6536 22.0953 12.2211 21.7899 12.6134L21.7066 12.7076L17.7058 16.7031C17.315 17.0934 16.6818 17.093 16.2916 16.7022C15.9313 16.3415 15.904 15.7742 16.2093 15.3821L16.2925 15.288L19.5854 11.9995L16.292 8.70588C15.9015 8.31534 15.9015 7.68217 16.2921 7.29167Z" />
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
+
+    <!-- PaletteIcon Generated -->
+    <LinearGradientBrush x:Key="PaletteIconGradient"
+                         StartPoint="0,0"
+                         EndPoint="24,24"
+                         MappingMode="Absolute">
+        <GradientStop Color="#FF00F2FE"
+                      Offset="0" />
+        <GradientStop Color="#FF4FACFE"
+                      Offset="0.5" />
+        <GradientStop Color="#FF7117EA"
+                      Offset="1" />
+    </LinearGradientBrush>
+
+    <DrawingImage x:Key="PaletteIcon">
+        <DrawingImage.Drawing>
+            <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
+                <GeometryDrawing Brush="{StaticResource PaletteIconGradient}"
+                                 Geometry="M12,2C6.49,2 2,6.49 2,12C2,17.51 6.49,22 12,22C13.38,22 14.5,20.88 14.5,19.5C14.5,18.82 14.23,18.21 13.79,17.76C13.35,17.31 13.07,16.69 13.07,16C13.07,14.62 14.19,13.5 15.57,13.5H17C19.76,13.5 22,11.26 22,8.5C22,4.91 17.52,2 12,2ZM6.5,12C5.67,12 5,11.33 5,10.5C5,9.67 5.67,9 6.5,9C7.33,9 8,9.67 8,10.5C8,11.33 7.33,12 6.5,12ZM9.5,8C8.67,8 8,7.33 8,6.5C8,5.67 8.67,5 9.5,5C10.33,5 11,5.67 11,6.5C11,7.33 10.33,8 9.5,8ZM14.5,8C13.67,8 13,7.33 13,6.5C13,5.67 13.67,5 14.5,5C15.33,5 16,5.67 16,6.5C16,7.33 15.33,8 14.5,8ZM17.5,12C16.67,12 16,11.33 16,10.5C16,9.67 16.67,9 17.5,9C18.33,9 19,9.67 19,10.5C19,11.33 18.33,12 17.5,12Z" />
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
+    <!-- DesignIcon -->
+    <!-- Base Radial Gradient for the main circle -->
+    <RadialGradientBrush x:Key="MainCircleRadial"
+                         Center="0.5,0.5"
+                         GradientOrigin="0.2,0.8"
+                         RadiusX="0.7"
+                         RadiusY="0.7">
+        <GradientStop Color="#4E46E2"
+                      Offset="0.22" />
+        <GradientStop Color="#625DF6"
+                      Offset="0.57" />
+        <GradientStop Color="#E37DFF"
+                      Offset="0.95" />
+    </RadialGradientBrush>
+
+    <!-- Gradient for the accent rectangle -->
+    <RadialGradientBrush x:Key="AccentRectRadial"
+                         Center="0.1,0.1"
+                         GradientOrigin="0.1,0.1"
+                         RadiusX="1.2"
+                         RadiusY="1.6">
+        <GradientStop Color="#C354FF"
+                      Offset="0" />
+        <GradientStop Color="#B339F0"
+                      Offset="0.15" />
+        <GradientStop Color="#F24A9D"
+                      Offset="0.42" />
+        <GradientStop Color="#FF835C"
+                      Offset="0.74" />
+        <GradientStop Color="#FFC470"
+                      Offset="1" />
+    </RadialGradientBrush>
+
+    <!-- Linear Gradient for the overlay path -->
+    <LinearGradientBrush x:Key="OverlayPathLinear"
+                         StartPoint="1,1"
+                         EndPoint="0,0">
+        <GradientStop Color="#7631FF"
+                      Offset="0.19" />
+        <GradientStop Color="#E63080"
+                      Offset="0.88" />
+    </LinearGradientBrush>
+
+    <!-- Gradient for the left 'blob' shape -->
+    <LinearGradientBrush x:Key="BlobLinear"
+                         StartPoint="0,0.5"
+                         EndPoint="1,1">
+        <GradientStop Color="#0FAFFF"
+                      Offset="0" />
+        <GradientStop Color="#2764E7"
+                      Offset="1" />
+    </LinearGradientBrush>
+
+    <!-- Small top-accent radial -->
+    <RadialGradientBrush x:Key="TopAccentRadial">
+        <GradientStop Color="#FF9532"
+                      Offset="0" />
+        <GradientStop Color="#FF835C"
+                      Offset="0.25" />
+        <GradientStop Color="#F24A9D"
+                      Offset="1" />
+    </RadialGradientBrush>
+
+    <DrawingImage x:Key="DesignIcon">
+        <DrawingImage.Drawing>
+            <DrawingGroup ClipGeometry="M0,0 V24 H24 V0 H0 Z">
+                <!-- Background Circle -->
+                <GeometryDrawing Brush="{StaticResource MainCircleRadial}">
+                    <GeometryDrawing.Geometry>
+                        <EllipseGeometry Center="10.5,9.5"
+                                         RadiusX="6.5"
+                                         RadiusY="6.5" />
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+
+                <!-- Accent Rectangle -->
+                <GeometryDrawing Brush="{StaticResource AccentRectRadial}">
+                    <GeometryDrawing.Geometry>
+                        <RectangleGeometry Rect="10,9,12,12"
+                                           RadiusX="3"
+                                           RadiusY="3" />
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+
+                <!-- Glassy Overlay Path -->
+                <GeometryDrawing Brush="{StaticResource OverlayPathLinear}">
+                    <GeometryDrawing.Geometry>
+                        <PathGeometry Figures="M10.5 16C14.0899 16 17 13.0898 17 9.49997C17 9.33173 16.9936 9.16499 16.9811 8.99997H13C11.3431 8.99997 10 10.3431 10 12V15.981C10.165 15.9936 10.3318 16 10.5 16Z"
+                                      FillRule="EvenOdd" />
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+
+                <!-- Left Blob Shape -->
+                <GeometryDrawing Brush="{StaticResource BlobLinear}">
+                    <GeometryDrawing.Geometry>
+                        <PathGeometry Figures="M7.5 13.9483C7.5 19.2172 6.03906 21.9688 4.75 21.9688C3.63281 21.9688 2 19.6855 2 13.9483C2 9.05011 3.23122 8.26953 4.75 8.26953C6.10352 8.26953 7.5 8.67934 7.5 13.9483Z" />
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+
+                <!-- Top Small Highlight -->
+                <GeometryDrawing Brush="{StaticResource TopAccentRadial}">
+                    <GeometryDrawing.Geometry>
+                        <PathGeometry Figures="M5.57489 2.07403C5.83474 2.19892 6 2.4617 6 2.75001C6 3.49518 6.32769 4.08141 6.73156 4.68175C7.0641 5.17579 7.5 5.8234 7.5 6.75001C7.5 7.22276 7.38071 7.66766 7.17058 8.05623C6.70564 8.91598 5.79602 9.5 4.75 9.5C3.70764 9.5 2.80073 8.92007 2.33432 8.06525C2.12115 7.67455 2 7.22642 2 6.75C2 6.38181 2.00034 5.74888 2.38341 4.93168C2.75829 4.13192 3.47066 3.21301 4.78148 2.16436C5.00661 1.98425 5.31504 1.94914 5.57489 2.07403Z" />
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
+</ResourceDictionary>

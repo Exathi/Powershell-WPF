@@ -1,0 +1,83 @@
+<ContentControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <StackPanel HorizontalAlignment="Center"
+                VerticalAlignment="Center">
+        <TextBlock Text="Edit the textbox below to view how the xaml will look here."
+                   FontSize="16"
+                   FontWeight="SemiBold"
+                   Margin="20,0,0,20" />
+        <TextBlock Text="These buttons work too! All resources here must be refer to a {DynamicResource} instead of {StaticResource}."
+                   FontSize="16"
+                   FontWeight="SemiBold"
+                   Margin="20,0,0,20" />
+        <RadioButton CommandParameter="Home"
+                     Command="{Binding SwitchViewCommand}"
+                     IsChecked="True"
+                     Style="{DynamicResource MenuButton}"
+                     GroupName="NavMenu">
+            <RadioButton.Content>
+                <StackPanel Orientation="Horizontal"
+                            Width="285">
+                    <Image Source="{DynamicResource HomeIcon}"
+                           Width="24"
+                           Height="24" />
+                    <TextBlock Text="Home"
+                               Margin="16,0,0,0"
+                               VerticalAlignment="Center"
+                               FontSize="14" />
+                </StackPanel>
+            </RadioButton.Content>
+        </RadioButton>
+        <RadioButton CommandParameter="Demo"
+                     Command="{Binding SwitchViewCommand}"
+                     Style="{DynamicResource MenuButton}"
+                     GroupName="NavMenu">
+            <RadioButton.Content>
+                <StackPanel Orientation="Horizontal"
+                            Width="285">
+                    <Image Source="{DynamicResource DesignIcon}"
+                           Width="24"
+                           Height="24" />
+                    <TextBlock Text="Demo"
+                               Margin="16,0,0,0"
+                               VerticalAlignment="Center"
+                               FontSize="14" />
+                </StackPanel>
+            </RadioButton.Content>
+        </RadioButton>
+        <RadioButton Command="{Binding SwitchViewCommand}"
+                     CommandParameter="Color"
+                     Style="{DynamicResource MenuButton}"
+                     GroupName="NavMenu">
+            <RadioButton.Content>
+                <StackPanel Orientation="Horizontal"
+                            Width="285">
+                    <Image Source="{DynamicResource PaletteIcon}"
+                           Width="24"
+                           Height="24" />
+                    <TextBlock Text="Color"
+                               Margin="16,0,0,0"
+                               VerticalAlignment="Center"
+                               FontSize="14" />
+                </StackPanel>
+            </RadioButton.Content>
+        </RadioButton>
+        <RadioButton Command="{Binding SwitchViewCommand}"
+                     CommandParameter="Xaml Visual"
+                     Style="{DynamicResource MenuButton}"
+                     GroupName="NavMenu">
+            <RadioButton.Content>
+                <StackPanel Orientation="Horizontal"
+                            Width="285">
+                    <Image Source="{DynamicResource CodeIcon}"
+                           Width="24"
+                           Height="24" />
+                    <TextBlock Text="Xaml Visual"
+                               Margin="16,0,0,0"
+                               VerticalAlignment="Center"
+                               FontSize="14" />
+                </StackPanel>
+            </RadioButton.Content>
+        </RadioButton>
+    </StackPanel>
+</ContentControl>
