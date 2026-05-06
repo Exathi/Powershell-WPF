@@ -1,5 +1,5 @@
 # PsModelUI - Powershell with Wpf and Databinding
-[![Static Badge](https://img.shields.io/badge/Powershell%20Gallery-1.2.1-blue)](https://www.powershellgallery.com/packages/PsModelUI/)
+[![Static Badge](https://img.shields.io/badge/Powershell%20Gallery-1.2.2-blue)](https://www.powershellgallery.com/packages/PsModelUI/)
 
 ### Challenge
 1. To write a GUI in Windows Powershell and Pwsh 7.5+
@@ -9,15 +9,14 @@
 ### Result
 An **Asynchronous** PowerShell UI! Supported by a **ViewModel** and **Command Bindings**. Bonus updated theming with Pwsh 7.5+ that came with .NET 9.
 
-Revisited and simplified for Pwsh. Previous version is in the archive for those that followed it and for some obscure findings.
 
 
-![Initial Demo](./Images/Inital%20Demo.gif)
+![Data Templates Demo](./Images/Data%20Templates%20Demo.gif)
 
 
 ## Check out the Demo
 ``` Powershell
-. '.\Demo.ps1'
+. '.\Demos\DemoDataTemplates.ps1'
 ```
 
 
@@ -27,12 +26,12 @@ Revisited and simplified for Pwsh. Previous version is in the archive for those 
 Import-Module .\PsModelUI
 
 $ViewModel = New-ViewModel -ClassName 'ViewModel' -Methods @(
-		New-ViewModelMethod -Name 'MethodName' -Body {
+	New-ViewModelMethod -Name 'MethodName' -Body {
 		$Random = Get-Random -Min 1 -Max 3000
 		Start-Sleep -Milliseconds $Random
 		$this.BoundViewProperty = $Random
 	} -Throttle 3
-)
+) -AutomaticProperties $true
 
 # Remove ThemeMode="Dark" for Windows Powershell.
 $Xaml = @'
@@ -83,7 +82,7 @@ Set the other control to bind to ElementName of the first control.
 ### Dynamic Class
 Building a class has never been more verbose! Ever wanted to build your own class through functions? No? Now you can!
 
-Build parts of a class until you're ready to piece it together.
+Build parts of a class until you're ready to piece it together. This allows putting everything into one script rather than calling classes from another script after assemblies are loaded. You can use `-AsString` to get the raw definition to view and copy into another script or wrap in a scriptblock to define in one go for multiple classes to be of the same assembly version. Future classes can be created as normal if the definition is sourced in a scriptblock but will lack a runspacepool.` New-ViewModel -Type 'YourDefinedViewModelClass'` will insert one if for whatever reason you do want a viewmodel of the same class.
 
 ``` Powershell
 $ClassMethod = New-ViewModelMethod -Name 'ClassMethod' -Body {return 'Hello World'}
@@ -114,11 +113,8 @@ $DynamicClassDefinition
 class DynamicClass : ViewModelBase {
 [System.String]$_ClassProperty
 DynamicClass(){
-$this.ClassProperty = [scriptblock]::Create(
-@'
-,('I have default a value')
-'@
-).InvokeReturnAsIs()
+$this.psobject._ClassProperty = 'I have default a value'
+$this.ClassMethodCommand = [ActionCommand]::new($this.psobject.ClassMethod, $True, $this, 1)
 }
 $ClassMethodCommand
 [object]ClassMethod() {
@@ -132,12 +128,12 @@ return 'Hello World'
 ### Automatic Class Property Declaration
 For quick prototyping.
 
-`New-ViewModel` detects class properties used in class methods but not defined by `New-ClassProperty` and automatically includes it in the class as property of type object. Set `-AutomaticProperties $true` to turn this feature on.
+`New-ViewModel` detects class properties used in class methods but not defined by `New-ClassProperty` and automatically includes it in the class as property of type object. Set `-AutomaticProperties $true` to turn this on.
 
 ``` Powershell
 $DynamicClass = New-ViewModel -ClassName 'DynamicClass' -Methods @(
 	New-ViewModelMethod -Name 'ClassMethod' -Body {$this.AutoClassProperty = 'Hello World'}
-) -CreateMethodCommand $false -AutomaticProperties $true
+) -AutomaticProperties $true
 $DynamicClass.psobject.ClassMethod()
 $DynamicClass
 
@@ -149,7 +145,7 @@ Hello World
 
 ## Minimal Setup Example
 
-Here are the classes if you want nothing to do with the module and want to use the ViewModel class yourself:
+Here are the classes if you want nothing to do with the module and want to use the ViewModel class yourself. You may want to use runspacepool in StartAsync.
 
 ``` Powershell
 # Pwsh7.5 - copy paste into the terminal and check it out.
@@ -257,7 +253,7 @@ $Window.ShowDialog()
 
 
 ## Error Handling
-Since we're able to extract logic from the view, you can test logic separately. If needed, errors from the async call can be retrieved from $ViewModelBase.psobject.LastAction.GetAwaiter().GetResult(). Which would be the from the [ActionCommand]$Command since the button is the caller.
+Since we're able to extract logic from the view, you can test logic separately. If needed, errors from an async call can be retrieved from $ViewModelBase.psobject.LastAction.GetAwaiter().GetResult(), which would be the from the [ActionCommand]$Command since the button is the caller.
 
 
 ## How it works
@@ -300,20 +296,7 @@ $DemoClass.Prop # returns bar
 
 * Pwsh has access to the attribute `[NoRunspaceAffinity()]`. Powershell 5.1 needs to create the class without a runspace.
 
-``` Powershell
-# Pwsh
-$ViewModel = [MyViewModel]::new()
-$ViewModel.psobject.WriteVerboseCommand = [ActionCommand]::new($ViewModel.psobject.WriteVerboseMethod, $true, $Target, 0)
-$ViewModel.WriteVerboseMethod()
-PS> VERBOSE: Prints to host
-
-# Powershell
-$ViewModel = New-UnboundClassInstance MyViewModel
-$ViewModel.psobject.Dispatcher = [System.Windows.Threading.Dispatcher]::CurrentDispatcher
-$ViewModel.psobject.WriteVerboseCommand = [ActionCommand]::new($ViewModel.psobject.WriteVerboseMethod, $true, $Target, 0)
-$ViewModel.WriteVerboseMethod()
-PS> VERBOSE: Prints to host
-```
+* Pwsh has access to the newer fluent ui styles with `ThemeMode="System/Light/Dark"`
 
 For times where you need to use the dispatcher:
 ``` Powershell
