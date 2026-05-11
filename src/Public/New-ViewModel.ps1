@@ -287,14 +287,16 @@ function New-ViewModel {
         $null = $StringBuilder.Remove($StringBuilder.Length - 3, 3)
 
         # get all unique $this properties and add them as $property if not added in $PropertyDeclaration
-        foreach ($ClassProperty in $ClassProperties.Parent.Member.Extent.Text) {
-            if ([string]::IsNullOrWhiteSpace($ClassProperty)) { continue }
-            if ($PropertyDeclaration -contains $ClassProperty) { continue }
-            if ($PropertyInit.Name -contains $ClassProperty) { continue }
-            if ($ClassProperty -eq 'psobject') { continue }
-            if ($ClassProperty -in $ExcludeProperties) { continue }
+        foreach ($ClassProperty in $ClassProperties) {
+            $PropertyName = $ClassProperty.Parent.Member.Extent.Text
+            if ([string]::IsNullOrWhiteSpace($PropertyName)) { continue }
+            if ($PropertyDeclaration -contains $PropertyName) { continue }
+            if ($PropertyInit.Name -contains $PropertyName) { continue }
+            if ($PropertyName -eq 'psobject') { continue }
+            if ($PropertyName -in $ExcludeProperties) { continue }
+            if ($null -ne $PropertyName -and -not $ClassProperty.Parent.Extent.Text.StartsWith('$')) { continue }
 
-            $null = $UniqueProperties.Add($ClassProperty)
+            $null = $UniqueProperties.Add($PropertyName)
         }
 
         foreach ($ClassProperty in $UniqueProperties.GetEnumerator()) {

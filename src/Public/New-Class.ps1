@@ -308,12 +308,14 @@ function New-Class {
         $null = $StringBuilder.Remove($StringBuilder.Length - 6, 6)
 
         # get all unique $this properties and add them as $property if not added in $PropertyDeclaration
-        foreach ($ClassProperty in $ClassProperties.Parent.Member.Extent.Text) {
-            if ([string]::IsNullOrWhiteSpace($ClassProperty)) { continue }
-            if ($PropertyDeclaration -contains $ClassProperty) { continue }
-            if ($PropertyInit.Name -contains $ClassProperty) { continue }
-            if ($ClassProperty -eq 'psobject') { continue }
-            $null = $UniqueProperties.Add($ClassProperty)
+        foreach ($ClassProperty in $ClassProperties) {
+            $PropertyName = $ClassProperty.Parent.Member.Extent.Text
+            if ([string]::IsNullOrWhiteSpace($PropertyName)) { continue }
+            if ($PropertyDeclaration -contains $PropertyName) { continue }
+            if ($PropertyInit.Name -contains $PropertyName) { continue }
+            if ($PropertyName -eq 'psobject') { continue }
+            if ($null -ne $PropertyName -and -not $ClassProperty.Parent.Extent.Text.StartsWith('$')) { continue }
+            $null = $UniqueProperties.Add($PropertyName)
         }
 
         $null = $StringBuilder.AppendLine()
