@@ -1,5 +1,5 @@
 # PsModelUI - Powershell with Wpf and Databinding
-[![Static Badge](https://img.shields.io/badge/Powershell%20Gallery-1.2.2-blue)](https://www.powershellgallery.com/packages/PsModelUI/)
+[![Static Badge](https://img.shields.io/badge/Powershell%20Gallery-1.2.3-blue)](https://www.powershellgallery.com/packages/PsModelUI/)
 
 ### Challenge
 1. To write a GUI in Windows Powershell and Pwsh 7.5+
@@ -137,9 +137,9 @@ $DynamicClass = New-ViewModel -ClassName 'DynamicClass' -Methods @(
 $DynamicClass.psobject.ClassMethod()
 $DynamicClass
 
-AutoClassProperty
------------------
-Hello World
+ClassMethodCommand                                       AutoClassProperty
+------------------                                       -----------------
+@{Workers=System.Management.Automation.PSScriptProperty} Hello World
 ```
 
 
@@ -326,8 +326,9 @@ As long as methods do not update the same view property at the same time there i
 	$this.Property = $NewValue.Result
 }
 
-# Use the internal method `$this.psobject.UpdateView` if somehow mutliple methods update the same class property at the same time.
-# #Alternatively, use locks.
+# Use the internal method `$this.psobject.UpdateView` if there are problems with mutliple methods updating the same class property at the same time.
+# This shouldn't be needed if the class is unbound. The last update is the winner.
+# #Alternatively, use locks or map internal properties to a concurrent dictionary.
 [void]Method() {
 	$NewValue = Invoke-RestMethod
 	$this.psobject.UpdateView([pscustomobject]@{

@@ -636,12 +636,14 @@ function New-Class {
         $null = $StringBuilder.Remove($StringBuilder.Length - 6, 6)
 
         # get all unique $this properties and add them as $property if not added in $PropertyDeclaration
-        foreach ($ClassProperty in $ClassProperties.Parent.Member.Extent.Text) {
-            if ([string]::IsNullOrWhiteSpace($ClassProperty)) { continue }
-            if ($PropertyDeclaration -contains $ClassProperty) { continue }
-            if ($PropertyInit.Name -contains $ClassProperty) { continue }
-            if ($ClassProperty -eq 'psobject') { continue }
-            $null = $UniqueProperties.Add($ClassProperty)
+        foreach ($ClassProperty in $ClassProperties) {
+            $PropertyName = $ClassProperty.Parent.Member.Extent.Text
+            if ([string]::IsNullOrWhiteSpace($PropertyName)) { continue }
+            if ($PropertyDeclaration -contains $PropertyName) { continue }
+            if ($PropertyInit.Name -contains $PropertyName) { continue }
+            if ($PropertyName -eq 'psobject') { continue }
+            if ($null -ne $PropertyName -and -not $ClassProperty.Parent.Extent.Text.StartsWith('$')) { continue }
+            $null = $UniqueProperties.Add($PropertyName)
         }
 
         $null = $StringBuilder.AppendLine()
@@ -842,13 +844,13 @@ function New-ViewModel {
 
         Name: Name of the property
         Type: Type of the property (e.g. [string], [int], etc.)
-        Init: a scriptblock that defines the initial value of the property.
+        Init: A scriptblock that defines the initial value of the property.
             It can reference other properties defined in $PropertyInit or $PropertyDeclaration with `$this.PropertyName`.
             It will be invoked in the constructor of the class so it can also reference other properties defined in the same $PropertyInit array.
         ExcludePrefix: if $true, the backing property will be created without the '_' prefix.
             Only used for consistency in binding name rather than binding to _name vs just name.
-        Get: A scriptblock that defines the get accessor of the property. It can reference other properties defined in $PropertyInit or $PropertyDeclaration with `$this.PropertyName`.
-        Set: A scriptblock that defines the set accessor of the property. It can reference other properties defined in $PropertyInit or $PropertyDeclaration with `$this.PropertyName`.
+        Get: Optional with Set - A scriptblock that defines the get accessor of the property. It can reference other properties defined in $PropertyInit or $PropertyDeclaration with `$this.PropertyName`.
+        Set: Optional with Get - A scriptblock that defines the set accessor of the property. It can reference other properties defined in $PropertyInit or $PropertyDeclaration with `$this.PropertyName`.
 
         .EXAMPLE
         New-ViewModel -ClassName 'Test' -PropertyInit @(
@@ -860,14 +862,14 @@ function New-ViewModel {
         Use New-ViewModelMethod as a helper function to create the objects needed for this parameter.
         Takes an array of PSCustomObjects with the following properties:
 
-        Name: name of the method
-        Body: a scriptblock that defines the body of the method. It can reference properties defined in $PropertyInit or $PropertyDeclaration with `$this.PropertyName`.
+        Name: Name of the method
+        Body: A scriptblock that defines the body of the method. It can reference properties defined in $PropertyInit or $PropertyDeclaration with `$this.PropertyName`.
             The paramblock defines the parameters that the method will receive.
             Can be strongly typed by defining the parameters in the paramblock with their types.
-        CommandName: if ExcludeCommand is $true, this will be the name of the command property created for this method. If not provided, the command property will be named '{MethodName}Command'.
-        ExcludeCommand: if $true, no command property will be created for this method.
-        Throttle: the max number of times the equivalent method command can be running at a given time. Default is 1.
-        IsAsync: this signals the equivalent command to be invoked in another runspace if $true or on the console thread. Default is $true.
+        CommandName: If ExcludeCommand is $true, this will be the name of the command property created for this method. If not provided, the command property will be named '{MethodName}Command'.
+        ExcludeCommand: If $true, no command property will be created for this method.
+        Throttle: The max number of times the equivalent method command can be running at a given time. Default is 1.
+        IsAsync: This signals the equivalent command to be invoked in another runspace if $true or on the console thread. Default is $true.
 
         Will also create class properties for methods that call $this.propertyname that isn't in $PropertyDeclaration or $PropertyInit if $AutomaticProperties is $true.
 
@@ -881,16 +883,19 @@ function New-ViewModel {
             }
         )
 
-        $Test.DoMethod()
+        $Test.psobject.DoMethod()
         hello world
 
 
         Creates the following class:
 
-        class ViewModel : ViewModelBase {
+        class Test : ViewModelBase {
+            Test() {
+                $this.DoMethodCommand = [ActionCommand]::new($this.psobject.DoMethod, $False, $this, 1)
+            }
             $DoMethodCommand
             [object]DoMethod() {
-                return "hello world"
+                return 'hello world'
             }
         }
 
@@ -905,6 +910,14 @@ function New-ViewModel {
 
         .PARAMETER Type
         Used to create classes of the same assembly version after the -AsString definition has been invoked in the current scope.
+
+        .EXAMPLE
+        using module .\PsModelUI
+        $MainViewModelDef = New-ViewModel -ClassName 'MainViewModel' -PropertyInit @(New-ClassProperty -Name Prop -Init {'Example'}) -AsString
+        . ([scriptblock]::Create("$MainViewModelDef"))
+
+        New-ViewModel -Type MainViewModel -Unbound $false
+        [MainViewModel]::new()
 
         .EXAMPLE
         Create classes of the same assembly instead of redefining every time.
@@ -1070,14 +1083,16 @@ function New-ViewModel {
         $null = $StringBuilder.Remove($StringBuilder.Length - 3, 3)
 
         # get all unique $this properties and add them as $property if not added in $PropertyDeclaration
-        foreach ($ClassProperty in $ClassProperties.Parent.Member.Extent.Text) {
-            if ([string]::IsNullOrWhiteSpace($ClassProperty)) { continue }
-            if ($PropertyDeclaration -contains $ClassProperty) { continue }
-            if ($PropertyInit.Name -contains $ClassProperty) { continue }
-            if ($ClassProperty -eq 'psobject') { continue }
-            if ($ClassProperty -in $ExcludeProperties) { continue }
+        foreach ($ClassProperty in $ClassProperties) {
+            $PropertyName = $ClassProperty.Parent.Member.Extent.Text
+            if ([string]::IsNullOrWhiteSpace($PropertyName)) { continue }
+            if ($PropertyDeclaration -contains $PropertyName) { continue }
+            if ($PropertyInit.Name -contains $PropertyName) { continue }
+            if ($PropertyName -eq 'psobject') { continue }
+            if ($PropertyName -in $ExcludeProperties) { continue }
+            if ($null -ne $PropertyName -and -not $ClassProperty.Parent.Extent.Text.StartsWith('$')) { continue }
 
-            $null = $UniqueProperties.Add($ClassProperty)
+            $null = $UniqueProperties.Add($PropertyName)
         }
 
         foreach ($ClassProperty in $UniqueProperties.GetEnumerator()) {
