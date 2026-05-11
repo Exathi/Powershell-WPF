@@ -253,7 +253,7 @@ $Window.ShowDialog()
 
 
 ## Error Handling
-Since we're able to extract logic from the view, you can test logic separately. If needed, errors from an async call can be retrieved from $ViewModelBase.psobject.LastAction.GetAwaiter().GetResult(), which would be the from the [ActionCommand]$Command since the button is the caller.
+Since we're able to extract logic from the view, you can test logic separately. If needed, errors from an async call can be retrieved from `$ViewModelBase.psobject.LastAction.GetAwaiter().GetResult()`, which would be the from the `[ActionCommand]$Command` since the button is the caller.
 
 
 ## How it works

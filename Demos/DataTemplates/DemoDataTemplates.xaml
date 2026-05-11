@@ -31,15 +31,11 @@
             <DataTemplate x:Key="GenericDemoCard">
                 <Border Margin="0,0,0,16"
                         Padding="10"
-                        Background="White"
+                        Background="#BFFBFBFB"
                         CornerRadius="8"
-                        UseLayoutRounding="True">
-                    <Border.Effect>
-                        <DropShadowEffect BlurRadius="10"
-                                          Color="LightGray"
-                                          Opacity="0.5"
-                                          RenderingBias="Performance" />
-                    </Border.Effect>
+                        UseLayoutRounding="True"
+                        BorderThickness="1"
+                        BorderBrush="#E5E5E5">
                     <StackPanel>
                         <TextBlock Text="{Binding Header, Mode=OneTime}"
                                    FontSize="14"
@@ -67,15 +63,11 @@
             <DataTemplate x:Key="ProgressBarDemoCard">
                 <Border Margin="0,0,0,16"
                         Padding="10"
-                        Background="White"
+                        Background="#BFFBFBFB"
                         CornerRadius="8"
-                        UseLayoutRounding="True">
-                    <Border.Effect>
-                        <DropShadowEffect BlurRadius="10"
-                                          Color="LightGray"
-                                          Opacity="0.5"
-                                          RenderingBias="Performance" />
-                    </Border.Effect>
+                        UseLayoutRounding="True"
+                        BorderThickness="1"
+                        BorderBrush="#E5E5E5">
                     <StackPanel>
                         <TextBlock Text="{Binding Header, Mode=OneTime}"
                                    FontSize="14"
@@ -118,13 +110,10 @@
                         Grid.Column="2"
                         Margin="0,0,0,16"
                         Padding="10"
-                        Background="White"
-                        CornerRadius="8">
-                    <Border.Effect>
-                        <DropShadowEffect BlurRadius="10"
-                                          Color="LightGray"
-                                          Opacity="0.5" />
-                    </Border.Effect>
+                        Background="#BFFBFBFB"
+                        CornerRadius="8"
+                        BorderThickness="1"
+                        BorderBrush="#E5E5E5">
 
                     <DockPanel Margin="20,20,20,0"
                                Grid.Column="1">
@@ -160,7 +149,7 @@
             </DataTemplate>
 
 
-            <DataTemplate DataType="{x:Type local:MainViewModel}">
+            <DataTemplate DataType="{x:Type ViewModels:MainViewModel}">
                 <Grid Margin="20,20,20,0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="40" />
@@ -214,12 +203,12 @@
                     <Button Content="{Binding NavigationXamlVisual}"
                             Grid.Row="3"
                             Grid.Column="1"
-                            CommandParameter="Xaml Visual"
+                            CommandParameter="Xaml Preview"
                             Command="{Binding SwitchViewCommand}"
                             Style="{StaticResource NavigationButton}">
                         <Button.Content>
                             <StackPanel>
-                                <TextBlock Text="Xaml Visual"
+                                <TextBlock Text="Xaml Preview"
                                            FontSize="14" />
                                 <TextBlock Text="An inefficient view of live xaml"
                                            Foreground="#5E6060" />
@@ -288,13 +277,9 @@
                             Padding="10"
                             Background="{Binding ColorArgb}"
                             CornerRadius="8"
-                            UseLayoutRounding="True">
-                        <Border.Effect>
-                            <DropShadowEffect BlurRadius="10"
-                                              Color="LightGray"
-                                              Opacity="0.5"
-                                              RenderingBias="Performance" />
-                        </Border.Effect>
+                            UseLayoutRounding="True"
+                            BorderThickness="1"
+                            BorderBrush="#E5E5E5">
                         <StackPanel>
                             <TextBlock Text="{Binding Header}"
                                        FontSize="14"
@@ -588,7 +573,7 @@
                 </RadioButton.Content>
             </RadioButton>
             <RadioButton Command="{Binding SwitchViewCommand}"
-                         CommandParameter="Xaml Visual"
+                         CommandParameter="Xaml Preview"
                          Style="{StaticResource MenuButton}"
                          GroupName="NavMenu">
                 <RadioButton.Content>
@@ -597,7 +582,7 @@
                         <Image Source="{StaticResource CodeIcon}"
                                Width="24"
                                Height="24" />
-                        <TextBlock Text="Xaml Visual"
+                        <TextBlock Text="Xaml Preview"
                                    Margin="16,0,0,0"
                                    VerticalAlignment="Center"
                                    FontSize="14" />

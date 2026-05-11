@@ -63,7 +63,7 @@
             </RadioButton.Content>
         </RadioButton>
         <RadioButton Command="{Binding SwitchViewCommand}"
-                     CommandParameter="Xaml Visual"
+                     CommandParameter="Xaml Preview"
                      Style="{DynamicResource MenuButton}"
                      GroupName="NavMenu">
             <RadioButton.Content>
@@ -72,7 +72,7 @@
                     <Image Source="{DynamicResource CodeIcon}"
                            Width="24"
                            Height="24" />
-                    <TextBlock Text="Xaml Visual"
+                    <TextBlock Text="Xaml Preview"
                                Margin="16,0,0,0"
                                VerticalAlignment="Center"
                                FontSize="14" />

@@ -210,28 +210,28 @@ $ColorSplat = @{
         New-ClassProperty -Name Header -Type ([string]) -Init { 'Background Color Binding' }
         New-ClassProperty -Name Limitations -Type ([string]) -Init { 'Interactive color picker. Any control binding text requires binding to a ScriptProperty without the same backing name to invoke PropertyChanged.' }
 
-        New-ClassProperty -Name ColorA -Type ([byte]) -Init { 200 } -Get { return, $this.psobject._ColorA } -Set {
+        New-ClassProperty -Name ColorA -Type ([byte]) -Init { 191 } -Get { return, $this.psobject._ColorA } -Set {
             param($value)
             $this.psobject._ColorA = $value
             $this.ColorArgb = [System.Windows.Media.Color]::FromArgb($this.ColorA, $this.ColorR, $this.ColorG, $this.ColorB)
             $this.psobject.RaisePropertyChanged('ColorA')
         }
 
-        New-ClassProperty -Name ColorR -Type ([byte]) -Init { 255 } -Get { return, $this.psobject._ColorR } -Set {
+        New-ClassProperty -Name ColorR -Type ([byte]) -Init { 251 } -Get { return, $this.psobject._ColorR } -Set {
             param($value)
             $this.psobject._ColorR = $value
             $this.ColorArgb = [System.Windows.Media.Color]::FromArgb($this.ColorA, $this.ColorR, $this.ColorG, $this.ColorB)
             $this.psobject.RaisePropertyChanged('ColorR')
         }
 
-        New-ClassProperty -Name ColorG -Type ([byte]) -Init { 255 } -Get { return, $this.psobject._ColorG } -Set {
+        New-ClassProperty -Name ColorG -Type ([byte]) -Init { 251 } -Get { return, $this.psobject._ColorG } -Set {
             param($value)
             $this.psobject._ColorG = $value
             $this.ColorArgb = [System.Windows.Media.Color]::FromArgb($this.ColorA, $this.ColorR, $this.ColorG, $this.ColorB)
             $this.psobject.RaisePropertyChanged('ColorG')
         }
 
-        New-ClassProperty -Name ColorB -Type ([byte]) -Init { 255 } -Get { return, $this.psobject._ColorB } -Set {
+        New-ClassProperty -Name ColorB -Type ([byte]) -Init { 251 } -Get { return, $this.psobject._ColorB } -Set {
             param($value)
             $this.psobject._ColorB = $value
             $this.ColorArgb = [System.Windows.Media.Color]::FromArgb($this.ColorA, $this.ColorR, $this.ColorG, $this.ColorB)
@@ -304,7 +304,7 @@ $MainViewModelDef = New-ViewModel -ClassName 'MainViewModel' -PropertyInit @(
         $this.Header = $CommandParameter
         $this.CurrentViewModel = $this.ViewModels[$CommandParameter]
 
-        if ($CommandParameter -eq 'Xaml Visual') {
+        if ($CommandParameter -eq 'Xaml Preview') {
             $this.ContentVisible = 'Collapsed'
 
             if ($this.EditorVisible -eq 'Visible') {
@@ -369,16 +369,21 @@ $MainViewModelDef
 
 
 $MainViewModel = New-ViewModel -Type MainViewModel -Unbound $false
-$MainViewModel.ViewModels['Demo'].LongTaskViewModel.ServiceModel = $ServiceModel
-$MainViewModel.ViewModels['Demo'].AnotherTaskViewModel.ServiceModel = $ServiceModel
-$MainViewModel.ViewModels['Demo'].SampleFunctionViewModel.ServiceModel = $ServiceModel
-$MainViewModel.ViewModels['Demo'].DotSourcedViewModel.ServiceModel = $ServiceModel
-$MainViewModel.ViewModels['Demo'].ProgressBarViewModel.ServiceModel = $ServiceModel
+@(
+    'LongTaskViewModel'
+    'AnotherTaskViewModel'
+    'SampleFunctionViewModel'
+    'DotSourcedViewModel'
+    'ProgressBarViewModel'
+) | ForEach-Object {
+    $MainViewModel.ViewModels['Demo'].$_.ServiceModel = $ServiceModel
+}
+
 [System.Windows.Data.BindingOperations]::EnableCollectionSynchronization($MainViewModel.ViewModels['Demo'].AnotherTaskViewModel.GridContent, $MainViewModel.ViewModels['Demo'].AnotherTaskViewModel.GridContentLock)
 
 $WindowPath = "$PSScriptRoot\DataTemplates\DemoDataTemplates.xaml"
-$HotReloadPath = "$PSScriptRoot\DataTemplates\DemoDataTemplatesXamlVisual.xaml"
-$Window = New-WpfObject -Path $WindowPath -DataContext $MainViewModel -Namespace ('xmlns:local="clr-namespace:;assembly={0}" xmlns:ViewModels="clr-namespace:;assembly={1}" ' -f [MainViewModel].Assembly.FullName, [DemoViewModel].Assembly.FullName) -BaseUri "$PSScriptRoot/DataTemplates/"
+$HotReloadPath = "$PSScriptRoot\DataTemplates\DemoDataTemplatesXamlPreview.xaml"
+$Window = New-WpfObject -Path $WindowPath -DataContext $MainViewModel -Namespace ('xmlns:ViewModels="clr-namespace:;assembly={0}" ' -f [MainViewModel].Assembly.FullName) -BaseUri "$PSScriptRoot/DataTemplates/"
 $MainViewModel.Window = $Window
 $MainViewModel.XamlString = Get-Content -Path $HotReloadPath -Raw
 
